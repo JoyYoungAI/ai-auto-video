@@ -54,6 +54,9 @@
   "result.desc": "Ink-wash style · Journey to the West · Monkey King's Rampage",
   "result.icon": "🎥",
 
+  "output.empty.title": "Ready · Awaiting Generation",
+  "output.empty.desc": "Fill in the settings on the left and click Generate Video",
+
   "toast.serverDown": "⚠️ Cannot reach backend server — please run video_server.py first",
   "toast.missingDeps": "⚠️ Backend missing packages — please install moviepy and Pillow",
   "toast.logCopied": "📋 Log copied to clipboard"

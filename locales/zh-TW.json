@@ -54,6 +54,9 @@
   "result.desc": "水墨畫風格・西遊記・大鬧天宮",
   "result.icon": "🎥",
 
+  "output.empty.title": "就緒 · 等待生成",
+  "output.empty.desc": "填寫左側設定後，按下「開始生成影片」",
+
   "toast.serverDown": "⚠️ 無法連線後端伺服器，請先執行 video_server.py",
   "toast.missingDeps": "⚠️ 後端缺少套件，請確認已安裝 moviepy 與 Pillow",
   "toast.logCopied": "📋 Log 已複製到剪貼簿"
