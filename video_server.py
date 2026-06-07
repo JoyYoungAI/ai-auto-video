@@ -186,15 +186,18 @@ def generate_image(prompt: str, api_key: str, scene_idx: int,
         "Accept": "application/json",
         "Content-Type": "application/json"
     }
+    # schnell: only prompt/width/height/seed accepted; steps are fixed internally
+    # dev:     num_inference_steps and guidance are also accepted
+    # allowed height/width values: 768, 832, 896, 960, 1024, 1088, 1152, 1216, 1280, 1344
     payload: dict = {
         "prompt": prompt,
-        "width": 1024,
-        "height": 576,
+        "width": 1344,
+        "height": 768,
         "seed": 100 + scene_idx,
-        "num_inference_steps": 4 if fast_mode else 20,
     }
     if not fast_mode:
-        payload["guidance"] = 3.5  # FLUX.1-dev supports CFG; schnell is guidance-free
+        payload["num_inference_steps"] = 20
+        payload["guidance"] = 3.5
 
     resp = requests.post(url, headers=headers, json=payload, timeout=120)  # type: ignore[arg-type]
     if not resp.ok:
