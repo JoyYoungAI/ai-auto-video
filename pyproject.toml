@@ -49,6 +49,5 @@ known-first-party = ["video_server"]
 
 [tool.mypy]
 python_version = "3.10"
-warn_unused_imports = true
 warn_return_any = true
 ignore_missing_imports = true  # third-party stubs not always available

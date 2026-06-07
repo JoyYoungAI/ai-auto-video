@@ -8,19 +8,20 @@ Usage:
     Then open http://localhost:5000 in your browser.
 """
 
+import base64
 import contextlib
 import io
 import json
-import base64
 import os
 import random
 import threading
 import traceback
 import uuid
 from pathlib import Path
+
+import numpy as np
 from flask import Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
-import numpy as np
 
 # ── Try imports ──────────────────────────────────────────────────────────────
 try:
@@ -179,14 +180,14 @@ def generate_image(prompt: str, api_key: str, scene_idx: int,
         "steps": 10 if fast_mode else 25,
     }
 
-    resp = requests.post(url, headers=headers, json=payload, timeout=120)
+    resp = requests.post(url, headers=headers, json=payload, timeout=120)  # type: ignore[arg-type]
     resp.raise_for_status()
     data = resp.json()
 
     if "artifacts" in data and data["artifacts"]:
         img_bytes = base64.b64decode(data["artifacts"][0]["base64"])
         img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-        img = img.resize((1280, 720), Image.LANCZOS)
+        img = img.resize((1280, 720), Image.Resampling.LANCZOS)
         img.save(out_path, "PNG")
         return out_path
 
@@ -196,7 +197,7 @@ def generate_image(prompt: str, api_key: str, scene_idx: int,
 def make_placeholder(scene_idx: int, title: str, img_dir: Path) -> Path:
     """Create a gradient placeholder image with scene title when API is unavailable."""
     out_path = img_dir / f"scene_{scene_idx:02d}.png"
-    W, H = 1280, 720
+    iw, ih = 1280, 720
 
     # Parchment-tone gradient palette — each scene gets a distinct hue
     palette = [
@@ -209,24 +210,24 @@ def make_placeholder(scene_idx: int, title: str, img_dir: Path) -> Path:
     ]
     c1, c2 = palette[scene_idx % len(palette)]
 
-    arr = np.zeros((H, W, 3), dtype=np.uint8)
-    for y in range(H):
-        t = y / H
+    arr = np.zeros((ih, iw, 3), dtype=np.uint8)
+    for y in range(ih):
+        t = y / ih
         arr[y] = [int(c1[i] * (1 - t) + c2[i] * t) for i in range(3)]
     img = Image.fromarray(arr)
     draw = ImageDraw.Draw(img)
 
     rng = random.Random(scene_idx * 42)
     for _ in range(6):
-        x1 = rng.randint(80, W - 80)
-        y1 = rng.randint(60, H - 60)
+        x1 = rng.randint(80, iw - 80)
+        y1 = rng.randint(60, ih - 60)
         x2 = x1 + rng.randint(-200, 200)
         y2 = y1 + rng.randint(-100, 100)
         alpha = rng.randint(20, 55)
         draw.line([(x1, y1), (x2, y2)], fill=(80, 60, 40, alpha), width=rng.randint(2, 8))
 
-    draw.rectangle([18, 18, W - 18, H - 18], outline=(120, 100, 80), width=3)
-    draw.rectangle([28, 28, W - 28, H - 28], outline=(160, 140, 110), width=1)
+    draw.rectangle([18, 18, iw - 18, ih - 18], outline=(120, 100, 80), width=3)
+    draw.rectangle([28, 28, iw - 28, ih - 28], outline=(160, 140, 110), width=1)
 
     badge_txt = f"Scene {scene_idx + 1}"
     draw.rectangle([42, 42, 160, 78], fill=(80, 60, 40))
@@ -240,26 +241,26 @@ def make_placeholder(scene_idx: int, title: str, img_dir: Path) -> Path:
     label = title if title else f"Scene {scene_idx + 1}"
 
     if font_title:
-        draw.text((W // 2, H // 2 - 30), label, font=font_title,
+        draw.text((iw // 2, ih // 2 - 30), label, font=font_title,
                   fill=(60, 40, 20), anchor="mm")
     else:
         # No Chinese font — draw a fallback banner
-        draw.rectangle([W // 2 - 220, H // 2 - 55, W // 2 + 220, H // 2 + 55],
+        draw.rectangle([iw // 2 - 220, ih // 2 - 55, iw // 2 + 220, ih // 2 + 55],
                        fill=(60, 40, 20, 200))
         try:
             font_scene = ImageFont.load_default(size=28)
-            draw.text((W // 2, H // 2 - 15), f"[ Scene {scene_idx + 1} ]",
+            draw.text((iw // 2, ih // 2 - 15), f"[ Scene {scene_idx + 1} ]",
                       font=font_scene, fill=(240, 225, 190), anchor="mm")
-            draw.text((W // 2, H // 2 + 20), "(AI image will replace this)",
+            draw.text((iw // 2, ih // 2 + 20), "(AI image will replace this)",
                       font=ImageFont.load_default(size=16),
                       fill=(200, 185, 155), anchor="mm")
         except TypeError:
-            draw.text((W // 2 - 80, H // 2 - 10), f"Scene {scene_idx + 1}",
+            draw.text((iw // 2 - 80, ih // 2 - 10), f"Scene {scene_idx + 1}",
                       fill=(240, 225, 190))
 
     try:
         font_note = ImageFont.load_default(size=14)
-        draw.text((W // 2, H - 40), "[ Placeholder – NVIDIA NIM image will be generated here ]",
+        draw.text((iw // 2, ih - 40), "[ Placeholder – NVIDIA NIM image will be generated here ]",
                   font=font_note, fill=(120, 100, 80), anchor="mm")
     except TypeError:
         pass
@@ -296,6 +297,9 @@ def build_video(image_paths: list[Path],
                 output_path: Path, duration: float = 5.0):
     """Assemble images into MP4 with Ken Burns zoom + fade transitions (moviepy 2.x)."""
 
+    if not image_paths:
+        raise ValueError("image_paths is empty — no frames to assemble")
+
     def make_ken_burns(img_array, total_dur, fps=24,
                        zoom_start=1.0, zoom_end=1.1):
         h, w = img_array.shape[:2]
@@ -305,7 +309,7 @@ def build_video(image_paths: list[Path],
             progress = t / total_dur
             zoom = zoom_start + (zoom_end - zoom_start) * progress
             nw, nh = int(w * zoom), int(h * zoom)
-            frame = pil_img.resize((nw, nh), Image.LANCZOS)
+            frame = pil_img.resize((nw, nh), Image.Resampling.LANCZOS)
             left = (nw - w) // 2
             top  = (nh - h) // 2
             return np.array(frame.crop((left, top, left + w, top + h)))
@@ -360,7 +364,7 @@ Example format:
         temperature=0.7,
         max_tokens=2048
     )
-    raw = resp.choices[0].message.content.strip()
+    raw = (resp.choices[0].message.content or "").strip()
     # Strip markdown code fences if present
     if raw.startswith("```"):
         raw = "\n".join(raw.split("\n")[1:])
@@ -368,7 +372,7 @@ Example format:
         raw = "\n".join(raw.split("\n")[:-1])
 
     data = json.loads(raw)
-    scenes = data.get("scenes", data) if isinstance(data, dict) else data
+    scenes: list[dict] = data.get("scenes", data) if isinstance(data, dict) else data
     return scenes[:num_scenes]
 
 
@@ -632,16 +636,20 @@ if __name__ == "__main__":
     print("=" * 56)
 
     missing = []
-    if not REQUESTS_OK: missing.append("requests")
-    if not OPENAI_OK:   missing.append("openai")
-    if not PIL_OK:      missing.append("Pillow")
-    if not MOVIEPY_OK:  missing.append("moviepy")
+    if not REQUESTS_OK:
+        missing.append("requests")
+    if not OPENAI_OK:
+        missing.append("openai")
+    if not PIL_OK:
+        missing.append("Pillow")
+    if not MOVIEPY_OK:
+        missing.append("moviepy")
 
     if missing:
-        print(f"\n⚠️  缺少套件: {', '.join(missing)}")
-        print(f"   請執行: pip install {' '.join(missing)}\n")
+        print(f"\n[!] 缺少套件: {', '.join(missing)}")
+        print(f"    請執行: pip install {' '.join(missing)}\n")
     else:
-        print("\n✅ 所有套件已安裝完畢\n")
+        print("\n[OK] 所有套件已安裝完畢\n")
 
     restored = [j for j in jobs if jobs[j]["status"] in ("done", "error")]
     if restored:

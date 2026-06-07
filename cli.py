@@ -48,7 +48,7 @@ def main() -> None:
 
     api_key = args.key or API_KEY
     if not api_key:
-        print("❌ 請設定 NVIDIA_API_KEY 環境變數或使用 --key 參數")
+        print("[ERROR] 請設定 NVIDIA_API_KEY 環境變數或使用 --key 參數")
         sys.exit(1)
 
     server_path = Path(__file__).parent / "video_server.py"
@@ -56,7 +56,7 @@ def main() -> None:
         sys.path.insert(0, str(server_path.parent))
         from video_server import jobs, run_job  # noqa: PLC0415
     else:
-        print("❌ video_server.py 不在同一目錄")
+        print("[ERROR] video_server.py 不在同一目錄")
         sys.exit(1)
 
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -92,11 +92,11 @@ def main() -> None:
         dst = OUTPUT_DIR / f"story_video_{ts}.mp4"
         shutil.copy(src, dst)
         size_kb = dst.stat().st_size // 1024
-        print("\n✅ 完成！")
+        print("\n[OK] 完成！")
         print(f"   輸出: {dst}")
         print(f"   大小: {size_kb} KB")
     else:
-        print(f"\n❌ 失敗: {job['error']}")
+        print(f"\n[ERROR] 失敗: {job['error']}")
         sys.exit(1)
 
 
