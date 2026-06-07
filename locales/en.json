@@ -1,0 +1,54 @@
+{
+  "_meta": {
+    "lang": "en",
+    "name": "English",
+    "dir": "ltr"
+  },
+
+  "app.title": "AI Story Video Generator",
+  "app.subtitle": "· NVIDIA NIM",
+  "app.footer": "AI Story Video Generator · Powered by NVIDIA NIM (FLUX.1 + LLaMA 3.3) · API key stored in session only",
+
+  "apiKey.title": "NVIDIA API Key",
+  "apiKey.placeholder": "nvapi-xxxxxxxxxxxxxxxxxxxxxxxx",
+  "apiKey.show": "Show",
+  "apiKey.hide": "Hide",
+  "apiKey.notice": "<b>Stored in sessionStorage only</b> — cleared automatically when you close the browser. Get your key at build.nvidia.com.",
+  "apiKey.required": "Please enter your NVIDIA API Key first",
+
+  "story.title": "Story Text",
+  "story.label": "Enter a story passage (leave blank for the built-in Journey to the West demo)",
+  "story.placeholder": "e.g. Sun Wukong visited the Dragon Palace and claimed the magical staff...\n(Leave blank to use the built-in Monkey King's Rampage scenes)",
+
+  "settings.title": "Generation Settings",
+  "settings.scenes.label": "Number of scenes",
+  "settings.scenes.3": "3 scenes (15 sec)",
+  "settings.scenes.6": "6 scenes (30 sec) ✨",
+  "settings.scenes.9": "9 scenes (45 sec)",
+  "settings.scenes.12": "12 scenes (60 sec)",
+  "settings.options.label": "Options",
+  "settings.llm.label": "AI Scene Analysis",
+  "settings.llm.desc": "Use LLaMA to break story into scenes",
+  "settings.fast.label": "Fast Mode",
+  "settings.fast.desc": "FLUX-schnell (10 steps, quicker)",
+
+  "btn.generate": "🎬 Generate Video",
+  "btn.generating": "⏳ Generating...",
+  "btn.reset": "Reset",
+  "btn.copyLog": "📋 Copy Log",
+  "btn.logCopied": "✅ Copied!",
+  "btn.download": "⬇ Download Video (.mp4)",
+  "btn.generateAgain": "🔄 Generate Again",
+
+  "progress.title": "Generation Progress",
+  "progress.ready": "Ready...",
+
+  "result.title": "Result",
+  "result.heading": "Video generated!",
+  "result.desc": "Ink-wash style · Journey to the West · Monkey King's Rampage",
+  "result.icon": "🎥",
+
+  "toast.serverDown": "⚠️ Cannot reach backend server — please run video_server.py first",
+  "toast.missingDeps": "⚠️ Backend missing packages — please install moviepy and Pillow",
+  "toast.logCopied": "📋 Log copied to clipboard"
+}

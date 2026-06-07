@@ -1,0 +1,6 @@
+{
+  "nvidia_api_key": "nvapi-YOUR_KEY_HERE",
+  "default_scenes": 6,
+  "fast_mode": false,
+  "output_dir": "output"
+}

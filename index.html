@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>AI Story Video Generator · NVIDIA NIM</title>
+<style>
+/* ── Reset & base ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --green:  #76b900;
+  --green2: #5a8f00;
+  --dark:   #1a1a1a;
+  --card:   #252525;
+  --border: #333;
+  --text:   #e8e8e8;
+  --muted:  #888;
+  --accent: #f0b430;
+  --radius: 12px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Microsoft YaHei', 'PingFang TC', 'Noto Sans TC', Arial, sans-serif;
+  background: #111;
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Header ─────────────────────────────────────────────────────── */
+header {
+  width: 100%;
+  background: linear-gradient(135deg, #0d0d0d 0%, #1c2a10 100%);
+  border-bottom: 2px solid var(--green);
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+header svg { flex-shrink: 0; }
+header h1 {
+  font-size: clamp(1rem, 3vw, 1.35rem);
+  font-weight: 700;
+  color: var(--green);
+  letter-spacing: 0.02em;
+}
+header .subtitle {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-left: 8px;
+}
+
+/* ── Language switcher ───────────────────────────────────────────── */
+.lang-switch {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.lang-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all .15s;
+  font-weight: 600;
+}
+.lang-btn:hover  { border-color: var(--green); color: var(--green); }
+.lang-btn.active { background: var(--green); color: #fff; border-color: var(--green); }
+
+/* ── Main layout ─────────────────────────────────────────────────── */
+main {
+  width: 100%;
+  max-width: 860px;
+  padding: 28px 18px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Cards ───────────────────────────────────────────────────────── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  box-shadow: var(--shadow);
+}
+.card-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--green);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-title .ico { font-size: 1rem; }
+
+/* ── API Key input ───────────────────────────────────────────────── */
+.key-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.key-row input {
+  flex: 1 1 260px;
+  background: #1a1a1a;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.88rem;
+  padding: 10px 14px;
+  font-family: 'Courier New', monospace;
+  transition: border-color .2s;
+  min-width: 0;
+}
+.key-row input:focus { outline: none; border-color: var(--green); }
+.key-row input::placeholder { color: var(--muted); font-family: inherit; }
+.key-notice {
+  font-size: 0.76rem;
+  color: var(--muted);
+  margin-top: 8px;
+}
+.key-notice b { color: var(--accent); }
+
+/* ── Buttons ─────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all .18s;
+  white-space: nowrap;
+}
+.btn-primary {
+  background: var(--green);
+  color: #fff;
+}
+.btn-primary:hover { background: var(--green2); transform: translateY(-1px); }
+.btn-primary:disabled { background: #444; cursor: not-allowed; transform: none; }
+.btn-outline {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-outline:hover { border-color: var(--green); color: var(--green); }
+.btn-success {
+  background: #27ae60;
+  color: #fff;
+}
+.btn-success:hover { background: #219a52; }
+
+/* ── Form controls ───────────────────────────────────────────────── */
+label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+textarea, select {
+  width: 100%;
+  background: #1a1a1a;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.88rem;
+  padding: 10px 14px;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color .2s;
+}
+textarea:focus, select:focus { outline: none; border-color: var(--green); }
+
+.options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+.opt-group { display: flex; flex-direction: column; gap: 6px; }
+
+/* ── Toggle switch ───────────────────────────────────────────────── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #2a2a2a;
+}
+.toggle-row:last-child { border-bottom: none; }
+.toggle-label { font-size: 0.87rem; }
+.toggle-desc { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+.toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: #444;
+  border-radius: 24px;
+  transition: background .2s;
+  cursor: pointer;
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 18px; height: 18px;
+  left: 3px; top: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform .2s;
+}
+.toggle input:checked + .toggle-slider { background: var(--green); }
+.toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+/* ── Progress ────────────────────────────────────────────────────── */
+#progress-section { display: none; }
+.progress-wrap {
+  background: #1a1a1a;
+  border-radius: 20px;
+  height: 10px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--green), #a8e000);
+  border-radius: 20px;
+  transition: width .4s ease;
+  width: 0%;
+}
+.progress-status {
+  font-size: 0.85rem;
+  color: var(--accent);
+  margin-bottom: 12px;
+  min-height: 1.4em;
+}
+.log-box {
+  background: #141414;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.78rem;
+  color: #aaa;
+  max-height: 140px;
+  overflow-y: auto;
+  line-height: 1.7;
+}
+.log-box .ok   { color: #76b900; }
+.log-box .warn { color: var(--accent); }
+.log-box .err  { color: #e74c3c; }
+
+/* ── Result ──────────────────────────────────────────────────────── */
+#result-section { display: none; }
+.result-inner {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.result-icon { font-size: 2.8rem; line-height: 1; }
+.result-text h3 { font-size: 1.05rem; color: var(--green); margin-bottom: 4px; }
+.result-text p  { font-size: 0.83rem; color: var(--muted); }
+.result-btns { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+
+/* ── Scenes preview ──────────────────────────────────────────────── */
+.scenes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.scene-card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+}
+.scene-card .n { font-size: 0.7rem; color: var(--muted); }
+.scene-card .t { font-size: 0.92rem; font-weight: 700; color: var(--accent); margin: 4px 0; }
+.scene-card .s { font-size: 0.72rem; color: #aaa; }
+
+/* ── Footer ──────────────────────────────────────────────────────── */
+footer {
+  width: 100%;
+  text-align: center;
+  padding: 18px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .card { padding: 16px; }
+  .key-row { flex-direction: column; }
+  .key-row input { min-width: unset; width: 100%; }
+  .options-grid { grid-template-columns: 1fr; }
+  .lang-switch { gap: 3px; }
+  .lang-btn { padding: 4px 7px; font-size: 0.72rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────── -->
+<header>
+  <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+    <rect width="40" height="40" rx="8" fill="#76b900"/>
+    <text x="8" y="28" font-size="20" fill="white" font-family="Arial Black">N</text>
+  </svg>
+  <div>
+    <h1><span data-i18n="app.title">AI 故事影片生成器</span><span class="subtitle" data-i18n="app.subtitle">· NVIDIA NIM</span></h1>
+  </div>
+  <div class="lang-switch">
+    <button class="lang-btn active" id="lang-zh" onclick="setLang('zh-TW')">繁中</button>
+    <button class="lang-btn" id="lang-en" onclick="setLang('en')">EN</button>
+  </div>
+</header>
+
+<!-- ── Main ───────────────────────────────────────────────────────────── -->
+<main>
+
+  <!-- API Key -->
+  <div class="card" id="key-card">
+    <div class="card-title"><span class="ico">🔑</span> <span data-i18n="apiKey.title">NVIDIA API Key</span></div>
+    <div class="key-row">
+      <input type="password" id="api-key"
+             data-i18n-attr="placeholder:apiKey.placeholder"
+             autocomplete="off" spellcheck="false">
+      <button class="btn btn-outline" id="key-vis-btn" onclick="toggleKeyVis()" data-i18n="apiKey.show">顯示</button>
+    </div>
+    <p class="key-notice" id="key-notice-text"></p>
+  </div>
+
+  <!-- Story Input -->
+  <div class="card">
+    <div class="card-title"><span class="ico">📖</span> <span data-i18n="story.title">故事內容</span></div>
+    <label for="story-input" data-i18n="story.label">輸入故事段落</label>
+    <textarea id="story-input" rows="5"
+              data-i18n-attr="placeholder:story.placeholder"></textarea>
+  </div>
+
+  <!-- Options -->
+  <div class="card">
+    <div class="card-title"><span class="ico">⚙️</span> <span data-i18n="settings.title">生成設定</span></div>
+    <div class="options-grid">
+      <div class="opt-group">
+        <label for="num-scenes" data-i18n="settings.scenes.label">場景數量</label>
+        <select id="num-scenes">
+          <option value="3"  data-i18n="settings.scenes.3">3 個場景（15 秒）</option>
+          <option value="6"  data-i18n="settings.scenes.6" selected>6 個場景（30 秒）✨</option>
+          <option value="9"  data-i18n="settings.scenes.9">9 個場景（45 秒）</option>
+          <option value="12" data-i18n="settings.scenes.12">12 個場景（60 秒）</option>
+        </select>
+      </div>
+      <div class="opt-group">
+        <label data-i18n="settings.options.label">選項</label>
+        <div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label" data-i18n="settings.llm.label">AI 場景分析</div>
+              <div class="toggle-desc" data-i18n="settings.llm.desc">呼叫 LLaMA 分解故事場景</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="use-llm" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label" data-i18n="settings.fast.label">快速模式</div>
+              <div class="toggle-desc" data-i18n="settings.fast.desc">FLUX-schnell（10 步驟，較快）</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="fast-mode">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generate button -->
+  <div style="display:flex; gap:12px; flex-wrap:wrap;">
+    <button class="btn btn-primary" id="gen-btn" onclick="startGenerate()"
+            style="flex:1; min-width:180px; justify-content:center; padding:14px 24px; font-size:1rem;"
+            data-i18n="btn.generate">
+      🎬 開始生成影片
+    </button>
+    <button class="btn btn-outline" onclick="resetForm()" data-i18n="btn.reset">重置</button>
+  </div>
+
+  <!-- Progress section -->
+  <div class="card" id="progress-section">
+    <div class="card-title">
+      <span class="ico">⏳</span>
+      <span data-i18n="progress.title">生成進度</span>
+      <button class="btn btn-outline" id="copy-log-btn" onclick="copyLog()"
+              style="margin-left:auto; padding:5px 12px; font-size:0.76rem;"
+              data-i18n="btn.copyLog">📋 複製 Log</button>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar" id="prog-bar"></div>
+    </div>
+    <div class="progress-status" id="prog-status" data-i18n="progress.ready">準備中...</div>
+    <div class="log-box" id="log-box"></div>
+  </div>
+
+  <!-- Result section -->
+  <div class="card" id="result-section">
+    <div class="card-title"><span class="ico">✅</span> <span data-i18n="result.title">生成結果</span></div>
+    <div class="result-inner">
+      <div class="result-icon" data-i18n="result.icon">🎥</div>
+      <div class="result-text">
+        <h3 id="result-title" data-i18n="result.heading">影片生成完成！</h3>
+        <p id="result-desc" data-i18n="result.desc">水墨畫風格・西遊記・大鬧天宮</p>
+      </div>
+    </div>
+    <div class="result-btns">
+      <button class="btn btn-success" id="dl-btn" onclick="downloadVideo()" data-i18n="btn.download">
+        ⬇ 下載影片 (.mp4)
+      </button>
+      <button class="btn btn-outline" onclick="generateAgain()" data-i18n="btn.generateAgain">🔄 再次生成</button>
+    </div>
+    <div class="scenes-grid" id="scenes-preview"></div>
+  </div>
+
+</main>
+
+<footer data-i18n="app.footer">AI 故事影片生成器 · Powered by NVIDIA NIM (FLUX.1 + LLaMA 3.3) · 僅 Session 儲存金鑰</footer>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   i18n Engine
+   ════════════════════════════════════════════════════════════════ */
+const SUPPORTED_LANGS = ['zh-TW', 'en'];
+const LANG_STORAGE_KEY = 'app_lang';
+let _locale = {};
+let _currentLang = 'zh-TW';
+
+/** Fetch and apply a locale JSON file. Persists choice to localStorage. */
+async function loadLocale(lang) {
+  try {
+    const r = await fetch(`locales/${lang}.json`);
+    if (!r.ok) throw new Error(`${r.status}`);
+    _locale = await r.json();
+    _currentLang = lang;
+    localStorage.setItem(LANG_STORAGE_KEY, lang);
+    document.documentElement.lang = lang;
+    applyTranslations();
+    updateLangButtons();
+  } catch (e) {
+    console.warn(`[i18n] Failed to load ${lang}:`, e);
+  }
+}
+
+/** Translate a key using the current locale. Returns fallback or key if not found. */
+function t(key, fallback) {
+  return _locale[key] ?? fallback ?? key;
+}
+
+/**
+ * Walk the DOM and apply current locale strings.
+ * Handles data-i18n (textContent), data-i18n-attr (attributes),
+ * innerHTML keys, and <option> labels.
+ */
+function applyTranslations() {
+  // data-i18n → textContent
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const val = _locale[key];
+    if (val !== undefined) el.textContent = val;
+  });
+
+  // data-i18n-attr → attribute (e.g. "placeholder:key")
+  document.querySelectorAll('[data-i18n-attr]').forEach(el => {
+    el.getAttribute('data-i18n-attr').split(';').forEach(pair => {
+      const [attr, key] = pair.trim().split(':');
+      const val = _locale[key];
+      if (val !== undefined) el.setAttribute(attr, val);
+    });
+  });
+
+  // Special: innerHTML fields (keys containing HTML)
+  const htmlKeys = ['apiKey.notice'];
+  htmlKeys.forEach(key => {
+    const el = document.getElementById('key-notice-text');
+    if (el && _locale[key]) el.innerHTML = _locale[key];
+  });
+
+  // Select option texts
+  document.querySelectorAll('option[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (_locale[key]) el.textContent = _locale[key];
+  });
+}
+
+/** Switch UI language. Called by the 繁中 / EN buttons in the header. */
+function setLang(lang) {
+  if (!SUPPORTED_LANGS.includes(lang)) return;
+  loadLocale(lang);
+}
+
+/** Sync the active styling of the language toggle buttons to _currentLang. */
+function updateLangButtons() {
+  document.getElementById('lang-zh').classList.toggle('active', _currentLang === 'zh-TW');
+  document.getElementById('lang-en').classList.toggle('active', _currentLang === 'en');
+}
+
+/* ════════════════════════════════════════════════════════════════
+   App Logic
+   ════════════════════════════════════════════════════════════════ */
+const API_BASE    = "http://localhost:5000";
+const SESSION_KEY = "nvidia_api_key";
+let currentJobId  = null;
+let pollTimer     = null;
+let allLogLines   = [];
+
+/* ── Init ─────────────────────────────────────────────────────── */
+document.addEventListener("DOMContentLoaded", async () => {
+  // Restore language preference
+  const savedLang = localStorage.getItem(LANG_STORAGE_KEY) || 'zh-TW';
+  await loadLocale(savedLang);
+
+  // Restore API key
+  const saved = sessionStorage.getItem(SESSION_KEY);
+  if (saved) document.getElementById("api-key").value = saved;
+
+  checkServer();
+});
+
+/* ── Server health check ────────────────────────────────────────── */
+/** Ping /api/check and warn the user if required Python deps are missing. */
+async function checkServer() {
+  try {
+    const r = await fetch(`${API_BASE}/api/check`, { signal: AbortSignal.timeout(3000) });
+    const d = await r.json();
+    if (!d.deps.moviepy || !d.deps.PIL) {
+      showToast(t('toast.missingDeps'), "warn");
+    }
+  } catch {
+    showToast(t('toast.serverDown'), "warn");
+  }
+}
+
+/* ── Toggle key visibility ──────────────────────────────────────── */
+/** Toggle the API key input between password (hidden) and text (visible). */
+function toggleKeyVis() {
+  const inp = document.getElementById("api-key");
+  const btn = document.getElementById("key-vis-btn");
+  if (inp.type === "password") {
+    inp.type  = "text";
+    btn.textContent = t('apiKey.hide');
+  } else {
+    inp.type  = "password";
+    btn.textContent = t('apiKey.show');
+  }
+}
+
+/* ── Start generate ─────────────────────────────────────────────── */
+/**
+ * Validate inputs, save API key to sessionStorage, POST to /api/generate,
+ * then start polling for progress. Called by the "生成影片" button.
+ */
+async function startGenerate() {
+  const key   = document.getElementById("api-key").value.trim();
+  const story = document.getElementById("story-input").value.trim();
+  const nSc   = parseInt(document.getElementById("num-scenes").value);
+  const llm   = document.getElementById("use-llm").checked;
+  const fast  = document.getElementById("fast-mode").checked;
+
+  if (!key) { showToast(t('apiKey.required'), "err"); return; }
+
+  sessionStorage.setItem(SESSION_KEY, key);
+  allLogLines = [];
+
+  // UI state
+  const genBtn = document.getElementById("gen-btn");
+  genBtn.disabled    = true;
+  genBtn.textContent = t('btn.generating');
+  document.getElementById("progress-section").style.display = "block";
+  document.getElementById("result-section").style.display   = "none";
+  setProgress(5, t('progress.ready'));
+
+  try {
+    const resp = await fetch(`${API_BASE}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ api_key: key, story, num_scenes: nSc,
+                             use_llm: llm, fast_mode: fast })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || "Server error");
+
+    currentJobId = data.job_id;
+    pollStatus();
+
+  } catch (err) {
+    setProgress(0, `❌ ${err.message}`);
+    enableGenBtn();
+  }
+}
+
+/**
+ * Poll /api/status every 1.2 s until the job is done or errored.
+ * Updates the progress bar, status text, and log panel on each tick.
+ */
+function pollStatus() {
+  pollTimer = setInterval(async () => {
+    if (!currentJobId) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/status/${currentJobId}`);
+      const d = await r.json();
+
+      setProgress(d.progress, d.message);
+      renderLog(d.log);
+
+      if (d.status === "done") {
+        clearInterval(pollTimer);
+        showResult();
+        enableGenBtn();
+      } else if (d.status === "error") {
+        clearInterval(pollTimer);
+        setProgress(d.progress, `❌ ${d.error}`);
+        enableGenBtn();
+      }
+    } catch { /* network hiccup */ }
+  }, 1200);
+}
+
+/** Update the progress bar width (0–100) and status message text. */
+function setProgress(pct, msg) {
+  document.getElementById("prog-bar").style.width    = pct + "%";
+  document.getElementById("prog-status").textContent = msg;
+}
+
+/**
+ * Render log lines into the log-box div with colour coding.
+ * [OK] → green, [ERROR] → red, [WARN] → yellow, else → plain.
+ * Accumulates all lines in allLogLines for the Copy Log feature.
+ */
+function renderLog(lines) {
+  if (lines.length > allLogLines.length) allLogLines = lines;
+  const box = document.getElementById("log-box");
+  box.innerHTML = allLogLines.map(l => {
+    const esc = l.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    if (l.includes("✅") || l.includes("✓") || l.includes("[OK]"))
+      return `<div class="ok">${esc}</div>`;
+    if (l.includes("❌") || l.includes("[ERROR]") || l.includes("Error"))
+      return `<div class="err">${esc}</div>`;
+    if (l.includes("⚠") || l.includes("[WARN]") || l.includes("failed") || l.includes("Failed"))
+      return `<div class="warn">${esc}</div>`;
+    return `<div>${esc}</div>`;
+  }).join("");
+  box.scrollTop = box.scrollHeight;
+}
+
+/** Show the result card and scroll it into view smoothly. */
+function showResult() {
+  const sec = document.getElementById("result-section");
+  sec.style.display = "block";
+  sec.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/** Trigger a browser download of the finished MP4 via /api/download/<jobId>. */
+async function downloadVideo() {
+  if (!currentJobId) return;
+  const a = document.createElement("a");
+  a.href = `${API_BASE}/api/download/${currentJobId}`;
+  a.download = `story_video_${currentJobId}.mp4`;
+  a.click();
+}
+
+/** Hide result / progress panels and re-enable the generate button. */
+function generateAgain() {
+  document.getElementById("result-section").style.display   = "none";
+  document.getElementById("progress-section").style.display = "none";
+  enableGenBtn();
+}
+
+/** Re-enable the generate button and restore its translated label. */
+function enableGenBtn() {
+  const btn     = document.getElementById("gen-btn");
+  btn.disabled  = false;
+  btn.textContent = t('btn.generate');
+}
+
+/** Clear all inputs and hide progress/result panels. Stops any active poll. */
+function resetForm() {
+  clearInterval(pollTimer);
+  currentJobId = null;
+  allLogLines  = [];
+  document.getElementById("story-input").value = "";
+  document.getElementById("num-scenes").value  = "6";
+  document.getElementById("use-llm").checked   = true;
+  document.getElementById("fast-mode").checked = false;
+  document.getElementById("progress-section").style.display = "none";
+  document.getElementById("result-section").style.display   = "none";
+  enableGenBtn();
+}
+
+/* ── Copy Log ───────────────────────────────────────────────────── */
+/**
+ * Copy the full generation log to the clipboard with a formatted header.
+ * Falls back to document.execCommand("copy") if Clipboard API is unavailable.
+ */
+async function copyLog() {
+  const ts  = new Date().toISOString().replace("T", " ").slice(0, 19);
+  const sep = "=".repeat(48);
+  const header = `${sep}\nAI Story Video — Generation Log\nJob : ${currentJobId || "N/A"}\nTime: ${ts}\n${sep}\n`;
+  const text   = header + allLogLines.join("\n");
+
+  const btn = document.getElementById("copy-log-btn");
+  const orig = btn.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    Object.assign(ta.style, { position: "fixed", opacity: "0" });
+    document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy"); ta.remove();
+  }
+  btn.textContent = t('btn.logCopied');
+  setTimeout(() => { btn.textContent = t('btn.copyLog'); }, 2000);
+}
+
+/* ── Toast notification ─────────────────────────────────────────── */
+/**
+ * Show a floating toast notification that auto-dismisses after 4.5 s.
+ * @param {string} msg  - Message to display.
+ * @param {string} type - "info" (green) | "warn" (amber) | "err" (red).
+ */
+function showToast(msg, type = "info") {
+  const colors = { info: "#76b900", warn: "#f0b430", err: "#e74c3c" };
+  const el = document.createElement("div");
+  el.textContent = msg;
+  Object.assign(el.style, {
+    position: "fixed", bottom: "24px", right: "20px", left: "20px",
+    maxWidth: "420px", margin: "0 auto",
+    background: colors[type] || colors.info, color: "#fff",
+    padding: "12px 18px", borderRadius: "10px",
+    fontSize: "0.87rem", fontWeight: "600",
+    boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+    zIndex: "9999", textAlign: "center"
+  });
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 4500);
+}
+</script>
+</body>
+</html>

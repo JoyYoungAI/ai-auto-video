@@ -1,0 +1,40 @@
+# ── Python ────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# ── Virtual environments ───────────────────────────────────────────
+.venv/
+venv/
+env/
+.env
+
+# ── uv ────────────────────────────────────────────────────────────
+uv.lock
+
+# ── Secrets & config (contains API key) ───────────────────────────
+config.json
+
+# ── One-time push helpers (may contain PAT) ────────────────────────
+_push_to_github.ps1
+_run_push.bat
+_run_push.vbs
+
+# ── Generated output ───────────────────────────────────────────────
+output/
+*.mp4
+
+# ── OS / editor junk ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+.idea/
+.vscode/
+*.code-workspace
+
+# ── Logs ──────────────────────────────────────────────────────────
+*.log

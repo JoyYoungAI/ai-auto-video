@@ -1,0 +1,54 @@
+{
+  "_meta": {
+    "lang": "zh-TW",
+    "name": "繁體中文",
+    "dir": "ltr"
+  },
+
+  "app.title": "AI 故事影片生成器",
+  "app.subtitle": "· NVIDIA NIM",
+  "app.footer": "AI 故事影片生成器 · Powered by NVIDIA NIM (FLUX.1 + LLaMA 3.3) · 僅 Session 儲存金鑰",
+
+  "apiKey.title": "NVIDIA API Key",
+  "apiKey.placeholder": "nvapi-xxxxxxxxxxxxxxxxxxxxxxxx",
+  "apiKey.show": "顯示",
+  "apiKey.hide": "隱藏",
+  "apiKey.notice": "<b>僅存於 sessionStorage</b>，關閉瀏覽器後自動清除。金鑰請至 build.nvidia.com 取得。",
+  "apiKey.required": "請先輸入 NVIDIA API Key",
+
+  "story.title": "故事內容",
+  "story.label": "輸入故事段落（留空使用預設：西遊記·大鬧天宮）",
+  "story.placeholder": "例如：西遊記中，孫悟空東海龍宮取得如意金箍棒……\n（留空將使用內建的大鬧天宮場景）",
+
+  "settings.title": "生成設定",
+  "settings.scenes.label": "場景數量",
+  "settings.scenes.3": "3 個場景（15 秒）",
+  "settings.scenes.6": "6 個場景（30 秒）✨",
+  "settings.scenes.9": "9 個場景（45 秒）",
+  "settings.scenes.12": "12 個場景（60 秒）",
+  "settings.options.label": "選項",
+  "settings.llm.label": "AI 場景分析",
+  "settings.llm.desc": "呼叫 LLaMA 分解故事場景",
+  "settings.fast.label": "快速模式",
+  "settings.fast.desc": "FLUX-schnell（10 步驟，較快）",
+
+  "btn.generate": "🎬 開始生成影片",
+  "btn.generating": "⏳ 生成中...",
+  "btn.reset": "重置",
+  "btn.copyLog": "📋 複製 Log",
+  "btn.logCopied": "✅ 已複製！",
+  "btn.download": "⬇ 下載影片 (.mp4)",
+  "btn.generateAgain": "🔄 再次生成",
+
+  "progress.title": "生成進度",
+  "progress.ready": "準備中...",
+
+  "result.title": "生成結果",
+  "result.heading": "影片生成完成！",
+  "result.desc": "水墨畫風格・西遊記・大鬧天宮",
+  "result.icon": "🎥",
+
+  "toast.serverDown": "⚠️ 無法連線後端伺服器，請先執行 video_server.py",
+  "toast.missingDeps": "⚠️ 後端缺少套件，請確認已安裝 moviepy 與 Pillow",
+  "toast.logCopied": "📋 Log 已複製到剪貼簿"
+}
