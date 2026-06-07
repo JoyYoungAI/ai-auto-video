@@ -111,7 +111,7 @@ main {
   gap: 10px;
   flex-wrap: wrap;
 }
-.key-row input {
+.key-row input, #key-preview {
   flex: 1 1 260px;
   background: #1a1a1a;
   border: 1px solid var(--border);
@@ -125,6 +125,14 @@ main {
 }
 .key-row input:focus { outline: none; border-color: var(--green); }
 .key-row input::placeholder { color: var(--muted); font-family: inherit; }
+#key-preview {
+  display: none;
+  letter-spacing: .04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+}
 .key-notice {
   font-size: 0.76rem;
   color: var(--muted);
@@ -316,7 +324,7 @@ footer {
 @media (max-width: 600px) {
   .card { padding: 16px; }
   .key-row { flex-direction: column; }
-  .key-row input { min-width: unset; width: 100%; }
+  .key-row input, #key-preview { min-width: unset; width: 100%; }
   .options-grid { grid-template-columns: 1fr; }
   .lang-switch { gap: 3px; }
   .lang-btn { padding: 4px 7px; font-size: 0.72rem; }
@@ -350,6 +358,7 @@ footer {
       <input type="password" id="api-key"
              data-i18n-attr="placeholder:apiKey.placeholder"
              autocomplete="off" spellcheck="false">
+      <div id="key-preview" aria-label="masked API key"></div>
       <button class="btn btn-outline" id="key-vis-btn" onclick="toggleKeyVis()" data-i18n="apiKey.show">顯示</button>
     </div>
     <p class="key-notice" id="key-notice-text"></p>
@@ -582,15 +591,24 @@ async function checkServer() {
 }
 
 /* ── Toggle key visibility ──────────────────────────────────────── */
-/** Toggle the API key input between password (hidden) and text (visible). */
+/** Toggle between password input and a partially-masked preview (first 6 + last 3). */
 function toggleKeyVis() {
-  const inp = document.getElementById("api-key");
-  const btn = document.getElementById("key-vis-btn");
-  if (inp.type === "password") {
-    inp.type  = "text";
+  const inp  = document.getElementById("api-key");
+  const prev = document.getElementById("key-preview");
+  const btn  = document.getElementById("key-vis-btn");
+  if (inp.style.display !== "none") {
+    const v = inp.value;
+    if (v.length > 9) {
+      prev.textContent = v.slice(0, 6) + '•'.repeat(v.length - 9) + v.slice(-3);
+    } else {
+      prev.textContent = '•'.repeat(v.length);
+    }
+    inp.style.display  = "none";
+    prev.style.display = "";
     btn.textContent = t('apiKey.hide');
   } else {
-    inp.type  = "password";
+    inp.style.display  = "";
+    prev.style.display = "none";
     btn.textContent = t('apiKey.show');
   }
 }
