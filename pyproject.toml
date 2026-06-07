@@ -12,3 +12,43 @@ dependencies = [
     "moviepy>=2.0.0",
     "numpy>=1.24.0",
 ]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.1.0",
+    "ruff>=0.15.16",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes (unused imports, undefined names)
+    "I",     # isort
+    "B",     # flake8-bugbear (logic bugs)
+    "SIM",   # flake8-simplify
+    "UP",    # pyupgrade
+    "PLC",   # pylint convention
+]
+ignore = [
+    "E501",   # line too long — formatter handles this
+    "T201",   # print — CLI / server startup prints are intentional
+    "ANN",    # type annotations — not enforced yet
+    "D",      # docstring style — too opinionated
+    "RUF001", # ambiguous unicode — Chinese UI strings are intentional
+    "RUF002", # ambiguous unicode in docstrings
+    "FBT",    # boolean traps — not worth the noise here
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["video_server"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_imports = true
+warn_return_any = true
+ignore_missing_imports = true  # third-party stubs not always available

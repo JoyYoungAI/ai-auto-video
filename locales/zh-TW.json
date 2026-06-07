@@ -26,6 +26,12 @@
   "settings.scenes.6": "6 個場景（30 秒）✨",
   "settings.scenes.9": "9 個場景（45 秒）",
   "settings.scenes.12": "12 個場景（60 秒）",
+  "settings.duration.label": "每場景時長",
+  "settings.duration.3":  "3 秒",
+  "settings.duration.5":  "5 秒 ✨",
+  "settings.duration.8":  "8 秒",
+  "settings.duration.10": "10 秒",
+
   "settings.options.label": "選項",
   "settings.llm.label": "AI 場景分析",
   "settings.llm.desc": "呼叫 LLaMA 分解故事場景",

@@ -25,6 +25,7 @@ _run_push.vbs
 # ── Generated output ───────────────────────────────────────────────
 output/
 *.mp4
+!examples/*.mp4
 
 # ── OS / editor junk ──────────────────────────────────────────────
 .DS_Store

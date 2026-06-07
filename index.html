@@ -377,6 +377,15 @@ footer {
         </select>
       </div>
       <div class="opt-group">
+        <label for="scene-duration" data-i18n="settings.duration.label">每場景時長</label>
+        <select id="scene-duration">
+          <option value="3"  data-i18n="settings.duration.3">3 秒</option>
+          <option value="5"  data-i18n="settings.duration.5" selected>5 秒 ✨</option>
+          <option value="8"  data-i18n="settings.duration.8">8 秒</option>
+          <option value="10" data-i18n="settings.duration.10">10 秒</option>
+        </select>
+      </div>
+      <div class="opt-group">
         <label data-i18n="settings.options.label">選項</label>
         <div>
           <div class="toggle-row">
@@ -446,7 +455,6 @@ footer {
       </button>
       <button class="btn btn-outline" onclick="generateAgain()" data-i18n="btn.generateAgain">🔄 再次生成</button>
     </div>
-    <div class="scenes-grid" id="scenes-preview"></div>
   </div>
 
 </main>
@@ -587,11 +595,12 @@ function toggleKeyVis() {
  * then start polling for progress. Called by the "生成影片" button.
  */
 async function startGenerate() {
-  const key   = document.getElementById("api-key").value.trim();
-  const story = document.getElementById("story-input").value.trim();
-  const nSc   = parseInt(document.getElementById("num-scenes").value);
-  const llm   = document.getElementById("use-llm").checked;
-  const fast  = document.getElementById("fast-mode").checked;
+  const key      = document.getElementById("api-key").value.trim();
+  const story    = document.getElementById("story-input").value.trim();
+  const nSc      = parseInt(document.getElementById("num-scenes").value);
+  const llm      = document.getElementById("use-llm").checked;
+  const fast     = document.getElementById("fast-mode").checked;
+  const sceneDur = parseFloat(document.getElementById("scene-duration").value);
 
   if (!key) { showToast(t('apiKey.required'), "err"); return; }
 
@@ -611,7 +620,8 @@ async function startGenerate() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ api_key: key, story, num_scenes: nSc,
-                             use_llm: llm, fast_mode: fast })
+                             use_llm: llm, fast_mode: fast,
+                             scene_duration: sceneDur })
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || "Server error");
@@ -667,7 +677,7 @@ function renderLog(lines) {
   if (lines.length > allLogLines.length) allLogLines = lines;
   const box = document.getElementById("log-box");
   box.innerHTML = allLogLines.map(l => {
-    const esc = l.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const esc = l.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     if (l.includes("✅") || l.includes("✓") || l.includes("[OK]"))
       return `<div class="ok">${esc}</div>`;
     if (l.includes("❌") || l.includes("[ERROR]") || l.includes("Error"))
@@ -692,11 +702,14 @@ async function downloadVideo() {
   const a = document.createElement("a");
   a.href = `${API_BASE}/api/download/${currentJobId}`;
   a.download = `story_video_${currentJobId}.mp4`;
+  document.body.appendChild(a);
   a.click();
+  a.remove();
 }
 
 /** Hide result / progress panels and re-enable the generate button. */
 function generateAgain() {
+  currentJobId = null;
   document.getElementById("result-section").style.display   = "none";
   document.getElementById("progress-section").style.display = "none";
   enableGenBtn();

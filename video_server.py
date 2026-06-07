@@ -8,22 +8,23 @@ Usage:
     Then open http://localhost:5000 in your browser.
 """
 
-import os
-import sys
+import contextlib
+import io
 import json
 import base64
+import os
+import random
 import threading
-import time
-import uuid
-import io
 import traceback
+import uuid
 from pathlib import Path
-from flask import Flask, jsonify, request, send_file, Response, send_from_directory
+from flask import Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
+import numpy as np
 
 # ── Try imports ──────────────────────────────────────────────────────────────
 try:
-    import requests as req_lib
+    import requests
     REQUESTS_OK = True
 except ImportError:
     REQUESTS_OK = False
@@ -43,7 +44,6 @@ except ImportError:
 try:
     from moviepy import VideoClip, concatenate_videoclips
     from moviepy.video.fx import FadeIn, FadeOut
-    import numpy as np
     MOVIEPY_OK = True
 except ImportError:
     MOVIEPY_OK = False
@@ -55,8 +55,42 @@ CORS(app)
 WORK_DIR = Path(__file__).parent / "output"
 WORK_DIR.mkdir(exist_ok=True)
 
-# In-memory job tracker
+# In-memory job tracker (restored from disk on startup)
 jobs: dict[str, dict] = {}
+
+
+def _save_job(job_id: str) -> None:
+    """Persist job metadata so re-downloads survive server restarts."""
+    job = jobs.get(job_id)
+    if not job:
+        return
+    job_dir = WORK_DIR / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+    # Keep only last 200 log lines to limit file size
+    meta = {**job, "log": job.get("log", [])[-200:]}
+    with contextlib.suppress(OSError):
+        (job_dir / "job.json").write_text(
+            json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+
+def _load_jobs() -> None:
+    """Restore completed/errored jobs from disk on server startup."""
+    if not WORK_DIR.exists():
+        return
+    for job_dir in WORK_DIR.iterdir():
+        if not job_dir.is_dir():
+            continue
+        meta_file = job_dir / "job.json"
+        if meta_file.exists():
+            with contextlib.suppress(Exception):
+                meta = json.loads(meta_file.read_text(encoding="utf-8"))
+                job_id = job_dir.name
+                if job_id not in jobs:
+                    jobs[job_id] = meta
+
+
+_load_jobs()  # restore persisted jobs at import time (works under WSGI too)
 
 # ── NVIDIA NIM endpoints ───────────────────────────────────────────────────────
 NIM_LLM_BASE = "https://integrate.api.nvidia.com/v1"
@@ -145,7 +179,7 @@ def generate_image(prompt: str, api_key: str, scene_idx: int,
         "steps": 10 if fast_mode else 25,
     }
 
-    resp = req_lib.post(url, headers=headers, json=payload, timeout=120)
+    resp = requests.post(url, headers=headers, json=payload, timeout=120)
     resp.raise_for_status()
     data = resp.json()
 
@@ -160,22 +194,21 @@ def generate_image(prompt: str, api_key: str, scene_idx: int,
 
 
 def make_placeholder(scene_idx: int, title: str, img_dir: Path) -> Path:
-    """Create a visually clear placeholder image when API is unavailable."""
+    """Create a gradient placeholder image with scene title when API is unavailable."""
     out_path = img_dir / f"scene_{scene_idx:02d}.png"
     W, H = 1280, 720
 
-    # Ink-wash inspired gradient background (parchment tones per scene)
+    # Parchment-tone gradient palette — each scene gets a distinct hue
     palette = [
-        ((235, 228, 210), (180, 165, 140)),   # warm parchment
-        ((210, 225, 230), (150, 170, 185)),   # cool mist
-        ((225, 215, 225), (170, 155, 175)),   # purple dusk
-        ((215, 230, 215), (155, 175, 155)),   # bamboo green
-        ((235, 220, 205), (185, 160, 135)),   # clay earth
-        ((210, 210, 230), (150, 150, 185)),   # moonlight
+        ((235, 228, 210), (180, 165, 140)),
+        ((210, 225, 230), (150, 170, 185)),
+        ((225, 215, 225), (170, 155, 175)),
+        ((215, 230, 215), (155, 175, 155)),
+        ((235, 220, 205), (185, 160, 135)),
+        ((210, 210, 230), (150, 150, 185)),
     ]
     c1, c2 = palette[scene_idx % len(palette)]
 
-    # Vertical gradient
     arr = np.zeros((H, W, 3), dtype=np.uint8)
     for y in range(H):
         t = y / H
@@ -183,8 +216,7 @@ def make_placeholder(scene_idx: int, title: str, img_dir: Path) -> Path:
     img = Image.fromarray(arr)
     draw = ImageDraw.Draw(img)
 
-    # Decorative brush-stroke style lines (simulate ink painting)
-    import random; rng = random.Random(scene_idx * 42)
+    rng = random.Random(scene_idx * 42)
     for _ in range(6):
         x1 = rng.randint(80, W - 80)
         y1 = rng.randint(60, H - 60)
@@ -193,35 +225,31 @@ def make_placeholder(scene_idx: int, title: str, img_dir: Path) -> Path:
         alpha = rng.randint(20, 55)
         draw.line([(x1, y1), (x2, y2)], fill=(80, 60, 40, alpha), width=rng.randint(2, 8))
 
-    # Outer border (double line – traditional scroll style)
     draw.rectangle([18, 18, W - 18, H - 18], outline=(120, 100, 80), width=3)
     draw.rectangle([28, 28, W - 28, H - 28], outline=(160, 140, 110), width=1)
 
-    # Scene number badge (top-left)
     badge_txt = f"Scene {scene_idx + 1}"
     draw.rectangle([42, 42, 160, 78], fill=(80, 60, 40))
     try:
-        f_badge = ImageFont.load_default(size=20)
-        draw.text((50, 50), badge_txt, font=f_badge, fill=(240, 225, 190))
+        font_badge = ImageFont.load_default(size=20)
+        draw.text((50, 50), badge_txt, font=font_badge, fill=(240, 225, 190))
     except TypeError:
         draw.text((50, 52), badge_txt, fill=(240, 225, 190))
 
-    # Title (try Chinese font first, fall back to romanised label)
-    f_title = find_chinese_font(68)
-    f_sub   = find_chinese_font(38)
-    label   = title if title else f"Scene {scene_idx + 1}"
+    font_title = find_chinese_font(68)
+    label = title if title else f"Scene {scene_idx + 1}"
 
-    if f_title:
-        draw.text((W // 2, H // 2 - 30), label, font=f_title,
+    if font_title:
+        draw.text((W // 2, H // 2 - 30), label, font=font_title,
                   fill=(60, 40, 20), anchor="mm")
     else:
-        # No Chinese font – draw a stylised placeholder banner instead
+        # No Chinese font — draw a fallback banner
         draw.rectangle([W // 2 - 220, H // 2 - 55, W // 2 + 220, H // 2 + 55],
                        fill=(60, 40, 20, 200))
         try:
-            fb = ImageFont.load_default(size=28)
+            font_scene = ImageFont.load_default(size=28)
             draw.text((W // 2, H // 2 - 15), f"[ Scene {scene_idx + 1} ]",
-                      font=fb, fill=(240, 225, 190), anchor="mm")
+                      font=font_scene, fill=(240, 225, 190), anchor="mm")
             draw.text((W // 2, H // 2 + 20), "(AI image will replace this)",
                       font=ImageFont.load_default(size=16),
                       fill=(200, 185, 155), anchor="mm")
@@ -229,11 +257,10 @@ def make_placeholder(scene_idx: int, title: str, img_dir: Path) -> Path:
             draw.text((W // 2 - 80, H // 2 - 10), f"Scene {scene_idx + 1}",
                       fill=(240, 225, 190))
 
-    # Bottom label showing this is a placeholder
     try:
-        f_note = ImageFont.load_default(size=14)
+        font_note = ImageFont.load_default(size=14)
         draw.text((W // 2, H - 40), "[ Placeholder – NVIDIA NIM image will be generated here ]",
-                  font=f_note, fill=(120, 100, 80), anchor="mm")
+                  font=font_note, fill=(120, 100, 80), anchor="mm")
     except TypeError:
         pass
 
@@ -253,11 +280,11 @@ def add_subtitle_to_image(img_path: Path, title: str, subtitle: str) -> Path:
     img.paste(overlay, (0, h - 160), overlay)
 
     draw = ImageDraw.Draw(img)
-    f_title = find_chinese_font(52) or ImageFont.load_default()
-    f_sub = find_chinese_font(34) or ImageFont.load_default()
+    font_title = find_chinese_font(52) or ImageFont.load_default()
+    font_sub   = find_chinese_font(34) or ImageFont.load_default()
 
-    draw.text((w // 2, h - 120), title,  font=f_title, fill=(255, 220, 120, 255), anchor="mm")
-    draw.text((w // 2, h - 52),  subtitle, font=f_sub,   fill=(240, 240, 240, 230), anchor="mm")
+    draw.text((w // 2, h - 120), title,    font=font_title, fill=(255, 220, 120, 255), anchor="mm")
+    draw.text((w // 2, h - 52),  subtitle, font=font_sub,   fill=(240, 240, 240, 230), anchor="mm")
 
     img_rgb = img.convert("RGB")
     img_rgb.save(out_path, "PNG")
@@ -265,24 +292,23 @@ def add_subtitle_to_image(img_path: Path, title: str, subtitle: str) -> Path:
 
 
 # ── Video assembly ─────────────────────────────────────────────────────────────
-def build_video(scenes: list, image_paths: list[Path],
+def build_video(image_paths: list[Path],
                 output_path: Path, duration: float = 5.0):
-    """Assemble images into MP4 with Ken Burns + fade transitions (moviepy 2.x)."""
+    """Assemble images into MP4 with Ken Burns zoom + fade transitions (moviepy 2.x)."""
 
     def make_ken_burns(img_array, total_dur, fps=24,
                        zoom_start=1.0, zoom_end=1.1):
-        """Return a VideoClip with slow zoom."""
         h, w = img_array.shape[:2]
+        pil_img = Image.fromarray(img_array)  # created once; reused every frame
 
         def frame_fn(t):
             progress = t / total_dur
             zoom = zoom_start + (zoom_end - zoom_start) * progress
             nw, nh = int(w * zoom), int(h * zoom)
-            frame = Image.fromarray(img_array).resize((nw, nh), Image.LANCZOS)
+            frame = pil_img.resize((nw, nh), Image.LANCZOS)
             left = (nw - w) // 2
             top  = (nh - h) // 2
-            cropped = frame.crop((left, top, left + w, top + h))
-            return np.array(cropped)
+            return np.array(frame.crop((left, top, left + w, top + h)))
 
         return VideoClip(frame_fn, duration=total_dur).with_fps(fps)
 
@@ -306,7 +332,7 @@ def build_video(scenes: list, image_paths: list[Path],
 
 
 # ── LLM scene breakdown ────────────────────────────────────────────────────────
-def llm_generate_scenes(story_text: str, api_key: str, n: int = 6) -> list[dict]:
+def llm_generate_scenes(story_text: str, api_key: str, num_scenes: int = 6) -> list[dict]:
     """Use NVIDIA NIM LLM to produce scene JSON from story."""
     client = OpenAI(base_url=NIM_LLM_BASE, api_key=api_key)
 
@@ -314,12 +340,12 @@ def llm_generate_scenes(story_text: str, api_key: str, n: int = 6) -> list[dict]
         "You are a film storyboard artist specialising in Chinese classical literature. "
         "Return ONLY valid JSON, no markdown fences."
     )
-    user = f"""Break this story into {n} visual scenes for a short video.
+    user = f"""Break this story into {num_scenes} visual scenes for a short video.
 
 Story:
 {story_text}
 
-Return a JSON object with key "scenes" containing an array of {n} objects, each with:
+Return a JSON object with key "scenes" containing an array of {num_scenes} objects, each with:
 - "title": 4-6 Chinese characters (scene name)
 - "subtitle": 10-20 Chinese characters (key narrative moment)
 - "image_prompt": English prompt for FLUX.1 image generation, always start with "Chinese traditional ink wash painting," and describe the scene vividly
@@ -343,12 +369,13 @@ Example format:
 
     data = json.loads(raw)
     scenes = data.get("scenes", data) if isinstance(data, dict) else data
-    return scenes[:n]
+    return scenes[:num_scenes]
 
 
 # ── Background job runner ──────────────────────────────────────────────────────
 def run_job(job_id: str, api_key: str, story_text: str,
-            num_scenes: int, use_llm: bool, fast_mode: bool):
+            num_scenes: int, use_llm: bool, fast_mode: bool,
+            scene_duration: float = 5.0):
     """
     Background worker that drives the full video generation pipeline.
 
@@ -361,12 +388,13 @@ def run_job(job_id: str, api_key: str, story_text: str,
         3. Video assembly  — Ken Burns zoom + fade via moviepy
 
     Args:
-        job_id:     Unique job identifier (stored in global `jobs` dict).
-        api_key:    NVIDIA NIM API key (Bearer token).
-        story_text: Source story for scene breakdown / default fallback.
-        num_scenes: How many scenes to generate (1–12).
-        use_llm:    Whether to call LLaMA for scene breakdown.
-        fast_mode:  If True use FLUX.1-schnell (10 steps) instead of dev (25).
+        job_id:         Unique job identifier (stored in global `jobs` dict).
+        api_key:        NVIDIA NIM API key (Bearer token).
+        story_text:     Source story for scene breakdown / default fallback.
+        num_scenes:     How many scenes to generate (1–12).
+        use_llm:        Whether to call LLaMA for scene breakdown.
+        fast_mode:      If True use FLUX.1-schnell (10 steps) instead of dev (25).
+        scene_duration: Seconds per scene clip (1–15, default 5).
     """
 
     def update(step, msg, pct=None):
@@ -398,6 +426,8 @@ def run_job(job_id: str, api_key: str, story_text: str,
 
         # ── Step 2: generate images ───────────────────────────────────────────
         update("2/3", "Generating ink-wash scene images...", 20)
+        if not PIL_OK:
+            raise RuntimeError("Pillow not installed — run: pip install Pillow")
         image_paths = []
         for i, scene in enumerate(scenes):
             pct = 20 + int(60 * (i / len(scenes)))
@@ -438,15 +468,15 @@ def run_job(job_id: str, api_key: str, story_text: str,
 
         update("3/3", "Assembling video...", 82)
         video_path = job_dir / "story_video.mp4"
-        build_video(scenes, image_paths, video_path,
-                    duration=5.0)
+        build_video(image_paths, video_path, duration=scene_duration)
 
-        total_sec = len(scenes) * 5
+        total_sec = int(len(scenes) * scene_duration)
+        jobs[job_id]["log"].append(f"[Done] [OK] Saved: {video_path.name}")
         jobs[job_id]["status"] = "done"
         jobs[job_id]["video_path"] = str(video_path)
         jobs[job_id]["progress"] = 100
-        jobs[job_id]["last_msg"] = f"✅ Video ready! Duration: {total_sec}s"
-        update("Done", f"[OK] Saved: {video_path.name}", 100)
+        jobs[job_id]["last_msg"] = f"✅ Done! {len(scenes)} scenes · {total_sec}s"
+        _save_job(job_id)
 
     except Exception as e:
         tb = traceback.format_exc()
@@ -454,6 +484,7 @@ def run_job(job_id: str, api_key: str, story_text: str,
         jobs[job_id]["error"] = str(e)
         jobs[job_id]["last_msg"] = f"❌ Error: {e}"
         jobs[job_id]["log"].append(f"[ERROR] {tb}")
+        _save_job(job_id)
 
 
 # ── Flask routes ───────────────────────────────────────────────────────────────
@@ -481,21 +512,26 @@ def api_generate():
     Start a new video generation job.
 
     Request body (JSON):
-        api_key    (str)  : NVIDIA NIM API key — required.
-        story      (str)  : Story text; defaults to 大鬧天宮 if empty.
-        num_scenes (int)  : Number of scenes 1–12 (default 6).
-        use_llm    (bool) : Whether to use LLaMA for scene breakdown (default True).
-        fast_mode  (bool) : Use FLUX.1-schnell instead of dev (default False).
+        api_key        (str)  : NVIDIA NIM API key — required.
+        story          (str)  : Story text; defaults to 大鬧天宮 if empty.
+        num_scenes     (int)  : Number of scenes 1–12 (default 6).
+        use_llm        (bool) : Whether to use LLaMA for scene breakdown (default True).
+        fast_mode      (bool) : Use FLUX.1-schnell instead of dev (default False).
+        scene_duration (float): Seconds per scene clip, 1–15 (default 5).
 
     Returns:
         JSON {"job_id": "<8-char id>"} — poll /api/status/<job_id> for progress.
     """
     data = request.json or {}
-    api_key   = data.get("api_key", "").strip()
-    story     = data.get("story", "").strip() or None
-    num_sc    = max(1, min(12, int(data.get("num_scenes", 6))))
+    api_key = data.get("api_key", "").strip()
+    story   = data.get("story", "").strip() or None
     use_llm   = bool(data.get("use_llm", True))
     fast_mode = bool(data.get("fast_mode", False))
+    try:
+        num_scenes     = max(1, min(12, int(data.get("num_scenes", 6))))
+        scene_duration = max(1.0, min(15.0, float(data.get("scene_duration", 5.0))))
+    except (TypeError, ValueError):
+        return jsonify({"error": "num_scenes 須為整數，scene_duration 須為數字"}), 400
 
     if not api_key:
         return jsonify({"error": "請輸入 NVIDIA API Key"}), 400
@@ -517,12 +553,13 @@ def api_generate():
         "之後大鬧凌霄寶殿，最終被如來佛祖以五行山鎮壓。"
     )
 
-    t = threading.Thread(
+    thread = threading.Thread(
         target=run_job,
-        args=(job_id, api_key, story_text, num_sc, use_llm, fast_mode),
+        args=(job_id, api_key, story_text, num_scenes, use_llm, fast_mode,
+              scene_duration),
         daemon=True
     )
-    t.start()
+    thread.start()
 
     return jsonify({"job_id": job_id})
 
@@ -548,7 +585,7 @@ def api_status(job_id):
         "status":   job["status"],
         "progress": job["progress"],
         "message":  job["last_msg"],
-        "log":      job["log"],          # full log for copy-to-clipboard
+        "log":      job["log"],
         "error":    job["error"]
     })
 
@@ -563,11 +600,11 @@ def api_download(job_id):
     """
     if job_id not in jobs:
         return jsonify({"error": "Job not found"}), 404
-    vp = jobs[job_id].get("video_path")
-    if not vp or not Path(vp).exists():
+    video_path = jobs[job_id].get("video_path")
+    if not video_path or not Path(video_path).exists():
         return jsonify({"error": "影片尚未生成"}), 404
     return send_file(
-        vp,
+        video_path,
         mimetype="video/mp4",
         as_attachment=True,
         download_name=f"story_video_{job_id}.mp4"
@@ -605,6 +642,10 @@ if __name__ == "__main__":
         print(f"   請執行: pip install {' '.join(missing)}\n")
     else:
         print("\n✅ 所有套件已安裝完畢\n")
+
+    restored = [j for j in jobs if jobs[j]["status"] in ("done", "error")]
+    if restored:
+        print(f"  已還原 {len(restored)} 個歷史任務（可重新下載）\n")
 
     print("  開啟瀏覽器: http://localhost:5000")
     print("  按 Ctrl+C 停止伺服器\n")

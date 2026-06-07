@@ -41,7 +41,7 @@
 ai-auto-video/
 ├── video_server.py          # Flask 後端（API + 影片生成引擎）
 ├── index.html               # RWD 前端
-├── generate_video_headless.py  # 無頭模式（排程用）
+├── cli.py  # 無頭模式（排程用）
 ├── config.json              # 設定檔（含 API Key）
 ├── start.bat                # Windows 一鍵啟動
 ├── pyproject.toml           # uv 套件定義

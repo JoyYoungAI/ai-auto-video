@@ -26,6 +26,12 @@
   "settings.scenes.6": "6 scenes (30 sec) ✨",
   "settings.scenes.9": "9 scenes (45 sec)",
   "settings.scenes.12": "12 scenes (60 sec)",
+  "settings.duration.label": "Duration per scene",
+  "settings.duration.3":  "3 sec",
+  "settings.duration.5":  "5 sec ✨",
+  "settings.duration.8":  "8 sec",
+  "settings.duration.10": "10 sec",
+
   "settings.options.label": "Options",
   "settings.llm.label": "AI Scene Analysis",
   "settings.llm.desc": "Use LLaMA to break story into scenes",
