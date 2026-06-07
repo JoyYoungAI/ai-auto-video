@@ -197,7 +197,10 @@ def generate_image(prompt: str, api_key: str, scene_idx: int,
         payload["guidance"] = 3.5  # FLUX.1-dev supports CFG; schnell is guidance-free
 
     resp = requests.post(url, headers=headers, json=payload, timeout=120)  # type: ignore[arg-type]
-    resp.raise_for_status()
+    if not resp.ok:
+        raise requests.HTTPError(
+            f"{resp.status_code} {resp.reason} — {resp.text[:600]}", response=resp
+        )
     data = resp.json()
 
     if "artifacts" in data and data["artifacts"]:
