@@ -186,14 +186,15 @@ def generate_image(prompt: str, api_key: str, scene_idx: int,
         "Accept": "application/json",
         "Content-Type": "application/json"
     }
-    payload = {
+    payload: dict = {
         "prompt": prompt,
-        "cfg_scale": 5.0,
-        "width": 1344,
-        "height": 768,
+        "width": 1024,
+        "height": 576,
         "seed": 100 + scene_idx,
-        "steps": 10 if fast_mode else 25,
+        "num_inference_steps": 4 if fast_mode else 20,
     }
+    if not fast_mode:
+        payload["guidance"] = 3.5  # FLUX.1-dev supports CFG; schnell is guidance-free
 
     resp = requests.post(url, headers=headers, json=payload, timeout=120)  # type: ignore[arg-type]
     resp.raise_for_status()
