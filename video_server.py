@@ -8,6 +8,8 @@ Usage:
     Then open http://localhost:5000 in your browser.
 """
 
+__version__ = "0.1.0"
+
 import base64
 import contextlib
 import io
@@ -619,7 +621,8 @@ def api_download(job_id):
 def api_check():
     """Health check + dependency status."""
     return jsonify({
-        "status": "ok",
+        "status":  "ok",
+        "version": __version__,
         "deps": {
             "requests": REQUESTS_OK,
             "openai":   OPENAI_OK,

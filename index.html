@@ -459,7 +459,10 @@ footer {
 
 </main>
 
-<footer data-i18n="app.footer">AI 故事影片生成器 · Powered by NVIDIA NIM (FLUX.1 + LLaMA 3.3) · 僅 Session 儲存金鑰</footer>
+<footer>
+  <span data-i18n="app.footer">AI 故事影片生成器 · Powered by NVIDIA NIM (FLUX.1 + LLaMA 3.3) · 僅 Session 儲存金鑰</span>
+  <span id="app-version" style="opacity:0.5;margin-left:1em"></span>
+</footer>
 
 <script>
 /* ════════════════════════════════════════════════════════════════
@@ -567,6 +570,9 @@ async function checkServer() {
   try {
     const r = await fetch(`${API_BASE}/api/check`, { signal: AbortSignal.timeout(3000) });
     const d = await r.json();
+    if (d.version) {
+      document.getElementById("app-version").textContent = `v${d.version}`;
+    }
     if (!d.deps.moviepy || !d.deps.PIL) {
       showToast(t('toast.missingDeps'), "warn");
     }
