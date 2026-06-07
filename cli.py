@@ -89,7 +89,7 @@ def main() -> None:
     job = jobs[job_id]
     if job["status"] == "done":
         src = Path(job["video_path"])
-        dst = OUTPUT_DIR / f"story_video_{ts}.mp4"
+        dst = OUTPUT_DIR / (job.get("video_filename") or f"story_video_{ts}.mp4")
         shutil.copy(src, dst)
         size_kb = dst.stat().st_size // 1024
         print("\n[OK] 完成！")

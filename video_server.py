@@ -16,9 +16,11 @@ import io
 import json
 import os
 import random
+import re
 import threading
 import traceback
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -50,6 +52,12 @@ try:
     MOVIEPY_OK = True
 except ImportError:
     MOVIEPY_OK = False
+
+try:
+    import truststore
+    truststore.inject_into_ssl()  # use OS cert store — fixes SSL on Windows
+except ImportError:
+    pass
 
 # ── App setup ─────────────────────────────────────────────────────────────────
 app = Flask(__name__, static_folder=None)
@@ -134,7 +142,12 @@ DEFAULT_SCENES = [
     }
 ]
 
-# ── Helper: find Chinese font ──────────────────────────────────────────────────
+# ── Helpers ────────────────────────────────────────────────────────────────────
+def _safe_filename(text: str, max_len: int = 20) -> str:
+    """Strip filesystem-unsafe chars; keep CJK and ASCII word characters."""
+    return re.sub(r'[^\w一-鿿]', '', text)[:max_len] or "video"
+
+
 def find_chinese_font(size: int):
     """Find a usable Chinese font and return ImageFont."""
     font_paths = [
@@ -430,6 +443,12 @@ def run_job(job_id: str, api_key: str, story_text: str,
             scenes = DEFAULT_SCENES[:num_scenes]
             update("1/3", f"Using built-in Journey to the West scenes — {len(scenes)} scenes", 15)
 
+        # Derive a human-readable filename: YYYYMMDD_HHMM_<first_scene_title>.mp4
+        ts = datetime.now().strftime("%Y%m%d_%H%M")
+        scene_name = _safe_filename(scenes[0].get("title", "")) if scenes else "video"
+        video_filename = f"{ts}_{scene_name}.mp4"
+        jobs[job_id]["video_filename"] = video_filename
+
         # ── Step 2: generate images ───────────────────────────────────────────
         update("2/3", "Generating ink-wash scene images...", 20)
         if not PIL_OK:
@@ -473,7 +492,7 @@ def run_job(job_id: str, api_key: str, story_text: str,
             raise RuntimeError("moviepy not installed — run: pip install moviepy")
 
         update("3/3", "Assembling video...", 82)
-        video_path = job_dir / "story_video.mp4"
+        video_path = job_dir / video_filename
         build_video(image_paths, video_path, duration=scene_duration)
 
         total_sec = int(len(scenes) * scene_duration)
@@ -578,11 +597,12 @@ def api_status(job_id):
     Poll the status of a running or completed job.
 
     Returns JSON:
-        status   (str)       : queued | running | done | error
-        progress (int)       : 0–100
-        message  (str)       : Latest human-readable status message.
-        log      (list[str]) : Full accumulated log lines for Copy Log feature.
-        error    (str|null)  : Error message if status == "error".
+        status    (str)       : queued | running | done | error
+        progress  (int)       : 0–100
+        message   (str)       : Latest human-readable status message.
+        log       (list[str]) : Full accumulated log lines for Copy Log feature.
+        error     (str|null)  : Error message if status == "error".
+        filename  (str|null)  : Download filename once job is done.
     """
     if job_id not in jobs:
         return jsonify({"error": "Job not found"}), 404
@@ -592,7 +612,8 @@ def api_status(job_id):
         "progress": job["progress"],
         "message":  job["last_msg"],
         "log":      job["log"],
-        "error":    job["error"]
+        "error":    job["error"],
+        "filename": job.get("video_filename"),
     })
 
 
@@ -609,11 +630,12 @@ def api_download(job_id):
     video_path = jobs[job_id].get("video_path")
     if not video_path or not Path(video_path).exists():
         return jsonify({"error": "影片尚未生成"}), 404
+    download_name = jobs[job_id].get("video_filename") or f"story_video_{job_id}.mp4"
     return send_file(
         video_path,
         mimetype="video/mp4",
         as_attachment=True,
-        download_name=f"story_video_{job_id}.mp4"
+        download_name=download_name
     )
 
 
