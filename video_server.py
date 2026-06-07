@@ -418,7 +418,8 @@ def run_job(job_id: str, api_key: str, story_text: str,
 
     def update(step, msg, pct=None):
         """Append a log line and optionally update progress percentage."""
-        jobs[job_id]["log"].append(f"[{step}] {msg}")
+        ts = datetime.now().strftime("%H:%M:%S")
+        jobs[job_id]["log"].append(f"[{ts}] [{step}] {msg}")
         if pct is not None:
             jobs[job_id]["progress"] = pct
         jobs[job_id]["last_msg"] = msg
@@ -496,7 +497,7 @@ def run_job(job_id: str, api_key: str, story_text: str,
         build_video(image_paths, video_path, duration=scene_duration)
 
         total_sec = int(len(scenes) * scene_duration)
-        jobs[job_id]["log"].append(f"[Done] [OK] Saved: {video_path.name}")
+        jobs[job_id]["log"].append(f"[{datetime.now().strftime('%H:%M:%S')}] [Done] [OK] Saved: {video_path.name}")
         jobs[job_id]["status"] = "done"
         jobs[job_id]["video_path"] = str(video_path)
         jobs[job_id]["progress"] = 100
@@ -508,7 +509,7 @@ def run_job(job_id: str, api_key: str, story_text: str,
         jobs[job_id]["status"] = "error"
         jobs[job_id]["error"] = str(e)
         jobs[job_id]["last_msg"] = f"❌ Error: {e}"
-        jobs[job_id]["log"].append(f"[ERROR] {tb}")
+        jobs[job_id]["log"].append(f"[{datetime.now().strftime('%H:%M:%S')}] [ERROR] {tb}")
         _save_job(job_id)
 
 

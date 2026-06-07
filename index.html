@@ -329,6 +329,39 @@ footer {
   .lang-switch { gap: 3px; }
   .lang-btn { padding: 4px 7px; font-size: 0.72rem; }
 }
+
+/* ── Button icon system ───────────────────────────────────────────── */
+.btn-ico::before {
+  margin-right: 6px;
+  vertical-align: middle;
+  font-size: 0.88em;
+  line-height: 1;
+}
+.ico-generate::before   { content: "▶"; }
+.ico-reset::before      { content: "↺"; }
+.ico-copylog::before    { content: "⎘"; }
+.ico-download::before   { content: "↓"; }
+.ico-again::before      { content: "↺"; }
+
+/* Spinning loader replaces icon when generating */
+.ico-generating::before {
+  content: "";
+  display: inline-block;
+  width: .85em;
+  height: .85em;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: btn-spin .75s linear infinite;
+  vertical-align: middle;
+}
+@keyframes btn-spin { to { transform: rotate(360deg); } }
+
+/* Dim disabled form inputs during generation */
+input:disabled, select:disabled, textarea:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
 </style>
 </head>
 <body>
@@ -424,12 +457,12 @@ footer {
 
   <!-- Generate button -->
   <div style="display:flex; gap:12px; flex-wrap:wrap;">
-    <button class="btn btn-primary" id="gen-btn" onclick="startGenerate()"
+    <button class="btn btn-primary btn-ico ico-generate" id="gen-btn" onclick="startGenerate()"
             style="flex:1; min-width:180px; justify-content:center; padding:14px 24px; font-size:1rem;"
             data-i18n="btn.generate">
-      🎬 開始生成影片
+      開始生成影片
     </button>
-    <button class="btn btn-outline" onclick="resetForm()" data-i18n="btn.reset">重置</button>
+    <button class="btn btn-outline btn-ico ico-reset" id="reset-btn" onclick="resetForm()" data-i18n="btn.reset">重置</button>
   </div>
 
   <!-- Progress section -->
@@ -437,9 +470,9 @@ footer {
     <div class="card-title">
       <span class="ico">⏳</span>
       <span data-i18n="progress.title">生成進度</span>
-      <button class="btn btn-outline" id="copy-log-btn" onclick="copyLog()"
+      <button class="btn btn-outline btn-ico ico-copylog" id="copy-log-btn" onclick="copyLog()"
               style="margin-left:auto; padding:5px 12px; font-size:0.76rem;"
-              data-i18n="btn.copyLog">📋 複製 Log</button>
+              data-i18n="btn.copyLog">複製 Log</button>
     </div>
     <div class="progress-wrap">
       <div class="progress-bar" id="prog-bar"></div>
@@ -459,10 +492,10 @@ footer {
       </div>
     </div>
     <div class="result-btns">
-      <button class="btn btn-success" id="dl-btn" onclick="downloadVideo()" data-i18n="btn.download">
-        ⬇ 下載影片 (.mp4)
+      <button class="btn btn-success btn-ico ico-download" id="dl-btn" onclick="downloadVideo()" data-i18n="btn.download">
+        下載影片 (.mp4)
       </button>
-      <button class="btn btn-outline" onclick="generateAgain()" data-i18n="btn.generateAgain">🔄 再次生成</button>
+      <button class="btn btn-outline btn-ico ico-again" onclick="generateAgain()" data-i18n="btn.generateAgain">再次生成</button>
     </div>
   </div>
 
@@ -632,9 +665,7 @@ async function startGenerate() {
   allLogLines = [];
 
   // UI state
-  const genBtn = document.getElementById("gen-btn");
-  genBtn.disabled    = true;
-  genBtn.textContent = t('btn.generating');
+  setGenerating(true);
   document.getElementById("progress-section").style.display = "block";
   document.getElementById("result-section").style.display   = "none";
   setProgress(5, t('progress.ready'));
@@ -739,12 +770,31 @@ function generateAgain() {
   enableGenBtn();
 }
 
-/** Re-enable the generate button and restore its translated label. */
-function enableGenBtn() {
-  const btn     = document.getElementById("gen-btn");
-  btn.disabled  = false;
-  btn.textContent = t('btn.generate');
+/**
+ * Lock/unlock the entire generation form.
+ * active=true: spin the gen-btn, disable all inputs and action buttons.
+ * active=false: restore normal state.
+ */
+function setGenerating(active) {
+  const formEls = ['api-key', 'story-input', 'num-scenes', 'scene-duration',
+                   'use-llm', 'fast-mode', 'key-vis-btn', 'reset-btn'];
+  formEls.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = active;
+  });
+  const genBtn = document.getElementById('gen-btn');
+  genBtn.disabled = active;
+  if (active) {
+    genBtn.classList.replace('ico-generate', 'ico-generating');
+    genBtn.textContent = t('btn.generating');
+  } else {
+    genBtn.classList.replace('ico-generating', 'ico-generate');
+    genBtn.textContent = t('btn.generate');
+  }
 }
+
+/** Re-enable the generate button and restore its translated label. */
+function enableGenBtn() { setGenerating(false); }
 
 /** Clear all inputs and hide progress/result panels. Stops any active poll. */
 function resetForm() {
