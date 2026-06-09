@@ -6,8 +6,8 @@
   },
 
   "app.title": "AI Story Video Generator",
-  "app.subtitle": "· NVIDIA NIM",
-  "app.footer": "AI Story Video Generator · Powered by NVIDIA NIM (FLUX.1 + LLaMA 3.3) · API key stored in session only",
+  "app.subtitle": "· Joy Young AI Team",
+  "app.footer": "© 2026 Joy Young Information Co., Ltd. · AI Story Video Generator · Powered by NVIDIA NIM (FLUX.1 + LLaMA 3.3)",
 
   "apiKey.title": "NVIDIA API Key",
   "apiKey.placeholder": "nvapi-xxxxxxxxxxxxxxxxxxxxxxxx",

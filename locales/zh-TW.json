@@ -6,8 +6,8 @@
   },
 
   "app.title": "AI 故事影片生成器",
-  "app.subtitle": "· NVIDIA NIM",
-  "app.footer": "AI 故事影片生成器 · Powered by NVIDIA NIM (FLUX.1 + LLaMA 3.3) · 僅 Session 儲存金鑰",
+  "app.subtitle": "· 中揚資訊 AI Team",
+  "app.footer": "© 2026 中揚資訊股份有限公司 · AI 故事影片生成器 · Powered by NVIDIA NIM (FLUX.1 + LLaMA 3.3)",
 
   "apiKey.title": "NVIDIA API Key",
   "apiKey.placeholder": "nvapi-xxxxxxxxxxxxxxxxxxxxxxxx",

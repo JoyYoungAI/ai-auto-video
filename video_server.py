@@ -8,7 +8,7 @@ Usage:
     Then open http://localhost:5000 in your browser.
 """
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 
 import base64
 import contextlib
@@ -186,8 +186,8 @@ def generate_image(prompt: str, api_key: str, scene_idx: int,
         "Accept": "application/json",
         "Content-Type": "application/json"
     }
-    # schnell: only prompt/width/height/seed accepted; steps are fixed internally
-    # dev:     num_inference_steps and guidance are also accepted
+    # Both dev and schnell endpoints only accept prompt/width/height/seed.
+    # num_inference_steps and guidance are forbidden by the NIM API.
     # allowed height/width values: 768, 832, 896, 960, 1024, 1088, 1152, 1216, 1280, 1344
     payload: dict = {
         "prompt": prompt,
@@ -195,9 +195,6 @@ def generate_image(prompt: str, api_key: str, scene_idx: int,
         "height": 768,
         "seed": 100 + scene_idx,
     }
-    if not fast_mode:
-        payload["num_inference_steps"] = 20
-        payload["guidance"] = 3.5
 
     resp = requests.post(url, headers=headers, json=payload, timeout=120)  # type: ignore[arg-type]
     if not resp.ok:
