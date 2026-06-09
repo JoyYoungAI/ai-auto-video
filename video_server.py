@@ -418,9 +418,15 @@ def build_video(image_paths: list[Path],
 
 # ── LLM scene breakdown ────────────────────────────────────────────────────────
 def llm_generate_scenes(story_text: str, api_key: str, num_scenes: int = 6,
-                        style_prefix: str = STYLE_PREFIXES[DEFAULT_STYLE]) -> list[dict]:
+                        style_prefix: str = STYLE_PREFIXES[DEFAULT_STYLE],
+                        log_cb=None) -> list[dict]:
     """Use NVIDIA NIM LLM to produce scene JSON from story."""
-    client = OpenAI(base_url=NIM_LLM_BASE, api_key=api_key)
+    def _log(m: str):
+        logging.info(m)
+        if log_cb:
+            log_cb(m)
+
+    client = OpenAI(base_url=NIM_LLM_BASE, api_key=api_key, timeout=60.0)
 
     system = (
         "You are a film storyboard artist specialising in Chinese classical literature. "
@@ -439,13 +445,20 @@ Return a JSON object with key "scenes" containing an array of {num_scenes} objec
 Example format:
 {{"scenes": [{{"title": "龍宮取寶", "subtitle": "如意金箍棒威震四海", "image_prompt": "{style_prefix} ..."}}]}}"""
 
-    resp = client.chat.completions.create(
-        model="meta/llama-3.3-70b-instruct",
-        messages=[{"role": "system", "content": system},
-                  {"role": "user", "content": user}],
-        temperature=0.7,
-        max_tokens=2048
-    )
+    _log("🔌 連線 LLaMA 3.3 (LLM 場景分析)...")
+    t0 = time.time()
+    try:
+        resp = client.chat.completions.create(
+            model="meta/llama-3.3-70b-instruct",
+            messages=[{"role": "system", "content": system},
+                      {"role": "user", "content": user}],
+            temperature=0.7,
+            max_tokens=2048
+        )
+        _log(f"✅ LLM 回應完成 ({time.time()-t0:.1f}s)")
+    except Exception as exc:
+        _log(f"❌ LLM 失敗 ({time.time()-t0:.1f}s): {exc}")
+        raise
     raw = (resp.choices[0].message.content or "").strip()
     # Strip markdown code fences if present
     if raw.startswith("```"):
@@ -503,7 +516,8 @@ def run_job(job_id: str, api_key: str, story_text: str,
         update("1/3", msg("step1.start"), 5)
         if use_llm and api_key and OPENAI_OK:
             try:
-                scenes = llm_generate_scenes(story_text, api_key, num_scenes, style_prefix)
+                scenes = llm_generate_scenes(story_text, api_key, num_scenes, style_prefix,
+                                             log_cb=lambda m: jobs[job_id]["log"].append(m))
                 update("1/3", msg("step1.ok", n=len(scenes)), 15)
             except Exception as e:
                 update("1/3", msg("step1.warn_llm", e=e), 15)
