@@ -38,6 +38,13 @@
   "settings.fast.label": "Fast Mode",
   "settings.fast.desc": "FLUX-schnell (10 steps, quicker)",
 
+  "settings.style.label": "Art Style",
+  "settings.style.ink":        "Ink Wash ✨",
+  "settings.style.oil":        "Oil Painting",
+  "settings.style.ukiyoe":     "Ukiyo-e",
+  "settings.style.watercolor": "Watercolor",
+  "settings.style.pixel":      "Pixel Art",
+
   "btn.generate": "Generate Video",
   "btn.generating": "Generating...",
   "btn.reset": "Reset",

@@ -596,6 +596,16 @@ input:disabled, select:disabled, textarea:disabled { opacity: .45; cursor: not-a
           </select>
         </div>
         <div class="opt-group">
+          <label for="art-style" data-i18n="settings.style.label">藝術風格</label>
+          <select id="art-style">
+            <option value="ink"        data-i18n="settings.style.ink"        selected>水墨畫 ✨</option>
+            <option value="oil"        data-i18n="settings.style.oil">油畫</option>
+            <option value="ukiyoe"     data-i18n="settings.style.ukiyoe">浮世繪</option>
+            <option value="watercolor" data-i18n="settings.style.watercolor">水彩</option>
+            <option value="pixel"      data-i18n="settings.style.pixel">像素藝術</option>
+          </select>
+        </div>
+        <div class="opt-group">
           <label data-i18n="settings.options.label">選項</label>
           <div>
             <div class="toggle-row">
@@ -822,6 +832,7 @@ async function startGenerate() {
   const llm      = document.getElementById("use-llm").checked;
   const fast     = document.getElementById("fast-mode").checked;
   const sceneDur = parseFloat(document.getElementById("scene-duration").value);
+  const style    = document.getElementById("art-style").value;
 
   if (!key) { showToast(t('apiKey.required'), "err"); return; }
 
@@ -842,7 +853,7 @@ async function startGenerate() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ api_key: key, story, num_scenes: nSc,
                              use_llm: llm, fast_mode: fast,
-                             scene_duration: sceneDur })
+                             scene_duration: sceneDur, style })
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || "Server error");
@@ -947,7 +958,7 @@ function generateAgain() {
 /* ── Generating lock ────────────────────────────────────────────── */
 function setGenerating(active) {
   const formEls = ['api-key', 'story-input', 'num-scenes', 'scene-duration',
-                   'use-llm', 'fast-mode', 'key-vis-btn', 'reset-btn'];
+                   'art-style', 'use-llm', 'fast-mode', 'key-vis-btn', 'reset-btn'];
   formEls.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.disabled = active;
@@ -972,10 +983,11 @@ function resetForm() {
   currentJobId = null;
   allLogLines  = [];
   lastFilename = null;
-  document.getElementById("story-input").value = "";
-  document.getElementById("num-scenes").value  = "6";
-  document.getElementById("use-llm").checked   = true;
-  document.getElementById("fast-mode").checked = false;
+  document.getElementById("story-input").value  = "";
+  document.getElementById("num-scenes").value   = "6";
+  document.getElementById("art-style").value    = "ink";
+  document.getElementById("use-llm").checked    = true;
+  document.getElementById("fast-mode").checked  = false;
   document.getElementById("progress-section").style.display = "none";
   document.getElementById("result-section").style.display   = "none";
   document.getElementById("output-empty").style.display     = "";

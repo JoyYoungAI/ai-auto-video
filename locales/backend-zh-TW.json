@@ -1,0 +1,28 @@
+{
+  "_meta": { "lang": "zh-TW", "name": "繁體中文" },
+
+  "step1.start":      "正在分析故事場景...",
+  "step1.ok":         "[OK] 場景分析完成 — 共 {n} 個場景",
+  "step1.warn_llm":   "[WARN] LLM 分析失敗，使用內建場景：{e}",
+  "step1.builtin":    "使用內建西遊記場景 — 共 {n} 個場景",
+
+  "step2.start":      "正在生成場景圖片...",
+  "step2.scene":      "場景 {i}/{n}：{title}",
+  "step2.warn_img":   "  [WARN] 圖片生成失敗：{e} — 使用佔位圖",
+  "step2.warn_sub":   "  [WARN] 字幕疊加失敗：{e}",
+  "step2.ok":         "[OK] 全部 {n} 張圖片已就緒",
+
+  "step3.start":      "正在組裝影片...",
+  "step3.saved":      "[OK] 已儲存：{filename}",
+
+  "job.done":         "✅ 完成！{n} 個場景 · {total_sec} 秒",
+  "job.error":        "❌ 錯誤：{e}",
+  "job.queued":       "已排隊...",
+  "job.missing_pil":  "Pillow 未安裝 — 請執行：pip install Pillow",
+  "job.missing_mpy":  "moviepy 未安裝 — 請執行：pip install moviepy",
+
+  "api.missing_key":    "請輸入 NVIDIA API Key",
+  "api.invalid_params": "num_scenes 須為整數，scene_duration 須為數字",
+  "api.job_not_found":  "找不到任務",
+  "api.video_not_ready":"影片尚未生成"
+}

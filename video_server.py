@@ -103,10 +103,46 @@ def _load_jobs() -> None:
 
 _load_jobs()  # restore persisted jobs at import time (works under WSGI too)
 
+# ── Backend i18n ───────────────────────────────────────────────────────────────
+_backend_msgs: dict[str, str] = {}
+
+
+def _load_backend_locale() -> None:
+    global _backend_msgs
+    lang = "zh-TW"
+    cfg_path = Path(__file__).parent / "config.json"
+    with contextlib.suppress(Exception):
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        lang = cfg.get("lang", "zh-TW")
+    locale_path = Path(__file__).parent / "locales" / f"backend-{lang}.json"
+    if not locale_path.exists():
+        locale_path = Path(__file__).parent / "locales" / "backend-zh-TW.json"
+    with contextlib.suppress(Exception):
+        _backend_msgs = json.loads(locale_path.read_text(encoding="utf-8"))
+
+
+def msg(key: str, **kwargs) -> str:
+    """Look up a backend locale string and format it with kwargs."""
+    template = _backend_msgs.get(key, key)
+    return template.format(**kwargs) if kwargs else template
+
+
+_load_backend_locale()
+
 # ── NVIDIA NIM endpoints ───────────────────────────────────────────────────────
 NIM_LLM_BASE = "https://integrate.api.nvidia.com/v1"
 NIM_IMAGE_URL = "https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-dev"
 NIM_IMAGE_FAST = "https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-schnell"
+
+# ── Art style prompt prefixes ──────────────────────────────────────────────────
+STYLE_PREFIXES: dict[str, str] = {
+    "ink":        "Chinese traditional ink wash painting,",
+    "oil":        "oil painting in classical Chinese style,",
+    "ukiyoe":     "Japanese ukiyo-e woodblock print,",
+    "watercolor":  "soft watercolor painting,",
+    "pixel":      "pixel art, 16-bit retro style,",
+}
+DEFAULT_STYLE = "ink"
 
 # ── Default scenes (大鬧天宮) ─────────────────────────────────────────────────
 DEFAULT_SCENES = [
@@ -355,7 +391,8 @@ def build_video(image_paths: list[Path],
 
 
 # ── LLM scene breakdown ────────────────────────────────────────────────────────
-def llm_generate_scenes(story_text: str, api_key: str, num_scenes: int = 6) -> list[dict]:
+def llm_generate_scenes(story_text: str, api_key: str, num_scenes: int = 6,
+                        style_prefix: str = STYLE_PREFIXES[DEFAULT_STYLE]) -> list[dict]:
     """Use NVIDIA NIM LLM to produce scene JSON from story."""
     client = OpenAI(base_url=NIM_LLM_BASE, api_key=api_key)
 
@@ -371,10 +408,10 @@ Story:
 Return a JSON object with key "scenes" containing an array of {num_scenes} objects, each with:
 - "title": 4-6 Chinese characters (scene name)
 - "subtitle": 10-20 Chinese characters (key narrative moment)
-- "image_prompt": English prompt for FLUX.1 image generation, always start with "Chinese traditional ink wash painting," and describe the scene vividly
+- "image_prompt": English prompt for FLUX.1 image generation, always start with "{style_prefix}" and describe the scene vividly
 
 Example format:
-{{"scenes": [{{"title": "龍宮取寶", "subtitle": "如意金箍棒威震四海", "image_prompt": "Chinese traditional ink wash painting, ..."}}]}}"""
+{{"scenes": [{{"title": "龍宮取寶", "subtitle": "如意金箍棒威震四海", "image_prompt": "{style_prefix} ..."}}]}}"""
 
     resp = client.chat.completions.create(
         model="meta/llama-3.3-70b-instruct",
@@ -398,7 +435,7 @@ Example format:
 # ── Background job runner ──────────────────────────────────────────────────────
 def run_job(job_id: str, api_key: str, story_text: str,
             num_scenes: int, use_llm: bool, fast_mode: bool,
-            scene_duration: float = 5.0):
+            scene_duration: float = 5.0, style: str = DEFAULT_STYLE):
     """
     Background worker that drives the full video generation pipeline.
 
@@ -436,17 +473,27 @@ def run_job(job_id: str, api_key: str, story_text: str,
         img_dir.mkdir(exist_ok=True)
 
         # ── Step 1: generate scene list ──────────────────────────────────────
-        update("1/3", "Generating scene breakdown...", 5)
+        style_prefix = STYLE_PREFIXES.get(style, STYLE_PREFIXES[DEFAULT_STYLE])
+        update("1/3", msg("step1.start"), 5)
         if use_llm and api_key and OPENAI_OK:
             try:
-                scenes = llm_generate_scenes(story_text, api_key, num_scenes)
-                update("1/3", f"[OK] Scene breakdown complete — {len(scenes)} scenes", 15)
+                scenes = llm_generate_scenes(story_text, api_key, num_scenes, style_prefix)
+                update("1/3", msg("step1.ok", n=len(scenes)), 15)
             except Exception as e:
-                update("1/3", f"[WARN] LLM failed, using default scenes: {e}", 15)
+                update("1/3", msg("step1.warn_llm", e=e), 15)
                 scenes = DEFAULT_SCENES[:num_scenes]
         else:
             scenes = DEFAULT_SCENES[:num_scenes]
-            update("1/3", f"Using built-in Journey to the West scenes — {len(scenes)} scenes", 15)
+            update("1/3", msg("step1.builtin", n=len(scenes)), 15)
+
+        # Apply style prefix — replace the default ink-wash prefix if present
+        ink_prefix = STYLE_PREFIXES[DEFAULT_STYLE]
+        for scene in scenes:
+            prompt = scene.get("image_prompt", "")
+            if prompt.startswith(ink_prefix):
+                scene["image_prompt"] = style_prefix + prompt[len(ink_prefix):]
+            elif not prompt.startswith(style_prefix):
+                scene["image_prompt"] = style_prefix + " " + prompt
 
         # Derive a human-readable filename: YYYYMMDD_HHMM_<first_scene_title>.mp4
         ts = datetime.now().strftime("%Y%m%d_%H%M")
@@ -455,13 +502,13 @@ def run_job(job_id: str, api_key: str, story_text: str,
         jobs[job_id]["video_filename"] = video_filename
 
         # ── Step 2: generate images ───────────────────────────────────────────
-        update("2/3", "Generating ink-wash scene images...", 20)
+        update("2/3", msg("step2.start"), 20)
         if not PIL_OK:
-            raise RuntimeError("Pillow not installed — run: pip install Pillow")
+            raise RuntimeError(msg("job.missing_pil"))
         image_paths = []
         for i, scene in enumerate(scenes):
             pct = 20 + int(60 * (i / len(scenes)))
-            update("2/3", f"Scene {i+1}/{len(scenes)}: {scene.get('title','')}", pct)
+            update("2/3", msg("step2.scene", i=i+1, n=len(scenes), title=scene.get("title", "")), pct)
 
             try:
                 if api_key and REQUESTS_OK and PIL_OK:
@@ -472,7 +519,7 @@ def run_job(job_id: str, api_key: str, story_text: str,
                 else:
                     raw_path = make_placeholder(i, scene.get("title", f"Scene {i+1}"), img_dir)
             except Exception as e:
-                update("2/3", f"  [WARN] Image generation failed: {e} — using placeholder", pct)
+                update("2/3", msg("step2.warn_img", e=e), pct)
                 raw_path = make_placeholder(i, scene.get("title", f"Scene {i+1}"), img_dir)
 
             # Bake subtitle
@@ -485,34 +532,34 @@ def run_job(job_id: str, api_key: str, story_text: str,
                     )
                     image_paths.append(final_path)
                 except Exception as e:
-                    update("2/3", f"  [WARN] Subtitle overlay failed: {e}", pct)
+                    update("2/3", msg("step2.warn_sub", e=e), pct)
                     image_paths.append(raw_path)
             else:
                 image_paths.append(raw_path)
 
-        update("2/3", f"[OK] All {len(image_paths)} images ready", 80)
+        update("2/3", msg("step2.ok", n=len(image_paths)), 80)
 
         # ── Step 3: assemble video ────────────────────────────────────────────
         if not MOVIEPY_OK:
-            raise RuntimeError("moviepy not installed — run: pip install moviepy")
+            raise RuntimeError(msg("job.missing_mpy"))
 
-        update("3/3", "Assembling video...", 82)
+        update("3/3", msg("step3.start"), 82)
         video_path = job_dir / video_filename
         build_video(image_paths, video_path, duration=scene_duration)
 
         total_sec = int(len(scenes) * scene_duration)
-        jobs[job_id]["log"].append(f"[{datetime.now().strftime('%H:%M:%S')}] [Done] [OK] Saved: {video_path.name}")
+        jobs[job_id]["log"].append(f"[{datetime.now().strftime('%H:%M:%S')}] [Done] {msg('step3.saved', filename=video_path.name)}")
         jobs[job_id]["status"] = "done"
         jobs[job_id]["video_path"] = str(video_path)
         jobs[job_id]["progress"] = 100
-        jobs[job_id]["last_msg"] = f"✅ Done! {len(scenes)} scenes · {total_sec}s"
+        jobs[job_id]["last_msg"] = msg("job.done", n=len(scenes), total_sec=total_sec)
         _save_job(job_id)
 
     except Exception as e:
         tb = traceback.format_exc()
         jobs[job_id]["status"] = "error"
         jobs[job_id]["error"] = str(e)
-        jobs[job_id]["last_msg"] = f"❌ Error: {e}"
+        jobs[job_id]["last_msg"] = msg("job.error", e=e)
         jobs[job_id]["log"].append(f"[{datetime.now().strftime('%H:%M:%S')}] [ERROR] {tb}")
         _save_job(job_id)
 
@@ -561,16 +608,20 @@ def api_generate():
         num_scenes     = max(1, min(12, int(data.get("num_scenes", 6))))
         scene_duration = max(1.0, min(15.0, float(data.get("scene_duration", 5.0))))
     except (TypeError, ValueError):
-        return jsonify({"error": "num_scenes 須為整數，scene_duration 須為數字"}), 400
+        return jsonify({"error": msg("api.invalid_params")}), 400
+
+    style = data.get("style", DEFAULT_STYLE)
+    if style not in STYLE_PREFIXES:
+        style = DEFAULT_STYLE
 
     if not api_key:
-        return jsonify({"error": "請輸入 NVIDIA API Key"}), 400
+        return jsonify({"error": msg("api.missing_key")}), 400
 
     job_id = str(uuid.uuid4())[:8]
     jobs[job_id] = {
         "status": "queued",
         "progress": 0,
-        "last_msg": "已排隊...",
+        "last_msg": msg("job.queued"),
         "log": [],
         "video_path": None,
         "error": None
@@ -586,7 +637,7 @@ def api_generate():
     thread = threading.Thread(
         target=run_job,
         args=(job_id, api_key, story_text, num_scenes, use_llm, fast_mode,
-              scene_duration),
+              scene_duration, style),
         daemon=True
     )
     thread.start()
@@ -610,7 +661,7 @@ def api_status(job_id):
         filename  (str|null)  : Download filename once job is done.
     """
     if job_id not in jobs:
-        return jsonify({"error": "Job not found"}), 404
+        return jsonify({"error": msg("api.job_not_found")}), 404
     job = jobs[job_id]
     return jsonify({
         "status":   job["status"],
@@ -631,10 +682,10 @@ def api_download(job_id):
     Returns 404 if the job doesn't exist or the video hasn't been generated yet.
     """
     if job_id not in jobs:
-        return jsonify({"error": "Job not found"}), 404
+        return jsonify({"error": msg("api.job_not_found")}), 404
     video_path = jobs[job_id].get("video_path")
     if not video_path or not Path(video_path).exists():
-        return jsonify({"error": "影片尚未生成"}), 404
+        return jsonify({"error": msg("api.video_not_ready")}), 404
     download_name = jobs[job_id].get("video_filename") or f"story_video_{job_id}.mp4"
     return send_file(
         video_path,

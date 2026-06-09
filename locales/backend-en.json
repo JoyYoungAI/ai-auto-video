@@ -1,0 +1,28 @@
+{
+  "_meta": { "lang": "en", "name": "English" },
+
+  "step1.start":      "Generating scene breakdown...",
+  "step1.ok":         "[OK] Scene breakdown complete — {n} scenes",
+  "step1.warn_llm":   "[WARN] LLM failed, using default scenes: {e}",
+  "step1.builtin":    "Using built-in Journey to the West scenes — {n} scenes",
+
+  "step2.start":      "Generating scene images...",
+  "step2.scene":      "Scene {i}/{n}: {title}",
+  "step2.warn_img":   "  [WARN] Image generation failed: {e} — using placeholder",
+  "step2.warn_sub":   "  [WARN] Subtitle overlay failed: {e}",
+  "step2.ok":         "[OK] All {n} images ready",
+
+  "step3.start":      "Assembling video...",
+  "step3.saved":      "[OK] Saved: {filename}",
+
+  "job.done":         "✅ Done! {n} scenes · {total_sec}s",
+  "job.error":        "❌ Error: {e}",
+  "job.queued":       "Queued...",
+  "job.missing_pil":  "Pillow not installed — run: pip install Pillow",
+  "job.missing_mpy":  "moviepy not installed — run: pip install moviepy",
+
+  "api.missing_key":    "Please enter your NVIDIA API Key",
+  "api.invalid_params": "num_scenes must be an integer and scene_duration a number",
+  "api.job_not_found":  "Job not found",
+  "api.video_not_ready":"Video not yet generated"
+}

@@ -38,6 +38,13 @@
   "settings.fast.label": "快速模式",
   "settings.fast.desc": "FLUX-schnell（10 步驟，較快）",
 
+  "settings.style.label": "藝術風格",
+  "settings.style.ink":        "水墨畫 ✨",
+  "settings.style.oil":        "油畫",
+  "settings.style.ukiyoe":     "浮世繪",
+  "settings.style.watercolor": "水彩",
+  "settings.style.pixel":      "像素藝術",
+
   "btn.generate": "開始生成影片",
   "btn.generating": "生成中...",
   "btn.reset": "重置",
