@@ -722,6 +722,34 @@ def api_download(job_id):
     )
 
 
+@app.route("/api/validate_key", methods=["POST"])
+def api_validate_key():
+    """Quick key validation: fires a 1-token LLM call to confirm the key is live."""
+    data = request.get_json() or {}
+    key = data.get("api_key", "").strip()
+    if not key:
+        return jsonify({"valid": False, "error": msg("api.missing_key")}), 400
+    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+    try:
+        resp = requests.post(
+            f"{NIM_LLM_BASE}/chat/completions",
+            headers=headers,
+            json={"model": "meta/llama-3.3-70b-instruct",
+                  "messages": [{"role": "user", "content": "Hi"}],
+                  "max_tokens": 1},
+            timeout=15
+        )
+        if resp.ok:
+            return jsonify({"valid": True})
+        return jsonify({"valid": False,
+                        "error": f"HTTP {resp.status_code} {resp.reason}",
+                        "status_code": resp.status_code})
+    except requests.Timeout:
+        return jsonify({"valid": False, "error": "連線逾時 (15s)"})
+    except requests.ConnectionError as exc:
+        return jsonify({"valid": False, "error": f"連線失敗: {exc}"})
+
+
 @app.route("/api/stream/<job_id>")
 def api_stream(job_id):
     """Serve MP4 inline for browser <video> preview (supports Range requests)."""

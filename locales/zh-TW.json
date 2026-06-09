@@ -15,6 +15,7 @@
   "apiKey.hide": "隱藏",
   "apiKey.notice": "<b>僅存於 sessionStorage</b>，關閉瀏覽器後自動清除。金鑰請至 build.nvidia.com 取得。",
   "apiKey.required": "請先輸入 NVIDIA API Key",
+  "apiKey.validate": "驗證 Key",
 
   "story.title": "故事內容",
   "story.label": "輸入故事段落（留空使用預設：西遊記·大鬧天宮）",

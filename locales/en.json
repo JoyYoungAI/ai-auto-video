@@ -15,6 +15,7 @@
   "apiKey.hide": "Hide",
   "apiKey.notice": "<b>Stored in sessionStorage only</b> — cleared automatically when you close the browser. Get your key at build.nvidia.com.",
   "apiKey.required": "Please enter your NVIDIA API Key first",
+  "apiKey.validate": "Validate Key",
 
   "story.title": "Story Text",
   "story.label": "Enter a story passage (leave blank for the built-in Journey to the West demo)",

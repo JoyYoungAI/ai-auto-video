@@ -227,6 +227,16 @@ header .subtitle {
   white-space: nowrap;
   user-select: none;
 }
+.key-validate-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+#key-status { font-size: 0.76rem; }
+#key-status.ok  { color: var(--green); }
+#key-status.err { color: #f85149; }
+#key-status.checking { color: var(--muted); }
 .key-notice {
   font-size: 0.70rem;
   color: var(--muted);
@@ -654,6 +664,12 @@ input:disabled, select:disabled, textarea:disabled { opacity: .45; cursor: not-a
         <div id="key-preview" aria-label="masked API key"></div>
         <button class="btn btn-outline" id="key-vis-btn" onclick="toggleKeyVis()" data-i18n="apiKey.show">顯示</button>
       </div>
+      <div class="key-validate-row">
+        <button class="btn btn-outline" id="key-validate-btn" onclick="validateKey()"
+                style="padding:4px 10px;font-size:0.76rem;"
+                data-i18n="apiKey.validate">驗證 Key</button>
+        <span id="key-status"></span>
+      </div>
       <p class="key-notice" id="key-notice-text"></p>
     </div>
 
@@ -906,6 +922,39 @@ function toggleKeyVis() {
     inp.style.display  = "";
     prev.style.display = "none";
     btn.textContent = t('apiKey.show');
+  }
+}
+
+/* ── Validate API key ───────────────────────────────────────────── */
+async function validateKey() {
+  const key = document.getElementById("api-key").value.trim();
+  if (!key) { showToast(t('apiKey.required'), "err"); return; }
+  const btn    = document.getElementById("key-validate-btn");
+  const status = document.getElementById("key-status");
+  btn.disabled = true;
+  status.className = "checking";
+  status.textContent = "⏳ 連線 NVIDIA NIM...";
+  try {
+    const resp = await fetch(`${API_BASE}/api/validate_key`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ api_key: key })
+    });
+    const data = await resp.json();
+    if (data.valid) {
+      status.className = "ok";
+      status.textContent = "✅ Key 有效";
+      sessionStorage.setItem(SESSION_KEY, key);
+    } else {
+      status.className = "err";
+      status.textContent = `❌ ${data.error || "無效"}`;
+    }
+  } catch (e) {
+    status.className = "err";
+    status.textContent = `❌ 連線失敗`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = t('apiKey.validate') || "驗證 Key";
   }
 }
 
