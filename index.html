@@ -101,10 +101,10 @@ header .subtitle {
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;
-  padding: 28px 28px 60px;
+  padding: 16px 28px 40px;
   display: grid;
-  grid-template-columns: 380px 1fr;
-  gap: 24px;
+  grid-template-columns: 360px 1fr;
+  gap: 18px;
   align-items: start;
   flex: 1;
 }
@@ -112,10 +112,10 @@ header .subtitle {
 /* ── Input panel (left, sticky) ──────────────────────────────────── */
 .input-panel {
   position: sticky;
-  top: 24px;
+  top: 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
   transition: opacity .35s ease;
 }
 .input-panel.locked {
@@ -182,7 +182,7 @@ header .subtitle {
   border: 1px solid var(--border);
   border-left: 2px solid var(--green);
   border-radius: var(--radius);
-  padding: 20px 22px;
+  padding: 14px 16px;
   box-shadow: var(--shadow);
 }
 .card-title {
@@ -487,6 +487,75 @@ footer {
 /* Dim disabled form inputs during generation */
 input:disabled, select:disabled, textarea:disabled { opacity: .45; cursor: not-allowed; }
 
+/* ── Result Modal ────────────────────────────────────────────────── */
+#result-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.65);
+  backdrop-filter: blur(4px);
+}
+.modal-box {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--green);
+  border-radius: 14px;
+  padding: 40px 44px 36px;
+  max-width: 420px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 24px 64px rgba(0,0,0,.6);
+  animation: modal-in .22s ease;
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(-18px) scale(.97); }
+  to   { opacity: 1; transform: none; }
+}
+.modal-close {
+  position: absolute;
+  top: 14px; right: 16px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: color .15s;
+}
+.modal-close:hover { color: var(--text); }
+.modal-icon { font-size: 3rem; margin-bottom: 12px; }
+.modal-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--green);
+  margin-bottom: 8px;
+}
+.modal-filename {
+  font-family: 'Courier New', monospace;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 24px;
+  word-break: break-all;
+}
+.modal-btns {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 /* ── Responsive — single column ≤ 1023px ────────────────────────── */
 @media (max-width: 1023px) {
   .layout {
@@ -569,7 +638,7 @@ input:disabled, select:disabled, textarea:disabled { opacity: .45; cursor: not-a
     <div class="card">
       <div class="card-title"><span class="ico">📖</span> <span data-i18n="story.title">故事內容</span></div>
       <label for="story-input" data-i18n="story.label">輸入故事段落</label>
-      <textarea id="story-input" rows="5"
+      <textarea id="story-input" rows="2"
                 data-i18n-attr="placeholder:story.placeholder"></textarea>
     </div>
 
@@ -671,27 +740,26 @@ input:disabled, select:disabled, textarea:disabled { opacity: .45; cursor: not-a
       <div class="log-box" id="log-box"></div>
     </div>
 
-    <!-- Result -->
-    <div class="card" id="result-section">
-      <div class="card-title"><span class="ico">✅</span> <span data-i18n="result.title">生成結果</span></div>
-      <div class="result-inner">
-        <div class="result-icon" data-i18n="result.icon">🎥</div>
-        <div class="result-text">
-          <h3 id="result-title" data-i18n="result.heading">影片生成完成！</h3>
-          <p id="result-desc" data-i18n="result.desc">水墨畫風格・西遊記・大鬧天宮</p>
-        </div>
-      </div>
-      <div class="result-btns">
-        <button class="btn btn-success btn-ico ico-download" id="dl-btn" onclick="downloadVideo()" data-i18n="btn.download">
-          下載影片 (.mp4)
-        </button>
-        <button class="btn btn-outline btn-ico ico-again" onclick="generateAgain()" data-i18n="btn.generateAgain">再次生成</button>
-      </div>
-    </div>
+    <!-- Result card removed — result now shown in modal popup -->
 
   </section><!-- /output-panel -->
 
 </main>
+
+<!-- ── Result Modal ────────────────────────────────────────────────────── -->
+<div id="result-modal" style="display:none" role="dialog" aria-modal="true">
+  <div class="modal-backdrop" onclick="closeModal()"></div>
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal()" aria-label="Close">✕</button>
+    <div class="modal-icon">🎬</div>
+    <h2 class="modal-title" data-i18n="result.heading">影片生成完成！</h2>
+    <p class="modal-filename" id="modal-filename"></p>
+    <div class="modal-btns">
+      <button class="btn btn-success btn-ico ico-download" onclick="downloadVideo()" data-i18n="btn.download">下載影片 (.mp4)</button>
+      <button class="btn btn-outline btn-ico ico-again" onclick="closeModalAndReset()" data-i18n="btn.generateAgain">再次生成</button>
+    </div>
+  </div>
+</div>
 
 <footer>
   <span data-i18n="app.footer">AI 故事影片生成器 · Powered by NVIDIA NIM (FLUX.1 + LLaMA 3.3) · 僅 Session 儲存金鑰</span>
@@ -915,23 +983,24 @@ function renderLog(lines) {
   box.scrollTop = box.scrollHeight;
 }
 
-/* ── Show result ────────────────────────────────────────────────── */
+/* ── Show result modal ──────────────────────────────────────────── */
 function showResult() {
-  const sec = document.getElementById("result-section");
-  sec.style.display = "block";
-  // Update description with actual filename
-  if (lastFilename) {
-    document.getElementById("result-desc").textContent = lastFilename;
-  }
-  // Scan-line animation
-  sec.classList.remove("scanning");
-  void sec.offsetWidth; // force reflow to restart animation
-  sec.classList.add("scanning");
-  setTimeout(() => sec.classList.remove("scanning"), 1000);
-  // Scroll to output on mobile (desktop already visible)
-  if (window.innerWidth < 1024) {
-    sec.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
+  document.getElementById("modal-filename").textContent = lastFilename || "";
+  const modal = document.getElementById("result-modal");
+  modal.style.display = "flex";
+  document.body.style.overflow = "hidden";
+  // Apply i18n to modal elements
+  applyTranslations();
+}
+
+function closeModal() {
+  document.getElementById("result-modal").style.display = "none";
+  document.body.style.overflow = "";
+}
+
+function closeModalAndReset() {
+  closeModal();
+  generateAgain();
 }
 
 /* ── Download ───────────────────────────────────────────────────── */
@@ -949,7 +1018,6 @@ async function downloadVideo() {
 function generateAgain() {
   currentJobId = null;
   lastFilename = null;
-  document.getElementById("result-section").style.display   = "none";
   document.getElementById("progress-section").style.display = "none";
   document.getElementById("output-empty").style.display     = "";
   enableGenBtn();
@@ -989,8 +1057,8 @@ function resetForm() {
   document.getElementById("use-llm").checked    = true;
   document.getElementById("fast-mode").checked  = false;
   document.getElementById("progress-section").style.display = "none";
-  document.getElementById("result-section").style.display   = "none";
   document.getElementById("output-empty").style.display     = "";
+  closeModal();
   document.getElementById("prog-bar").classList.remove("pulsing");
   enableGenBtn();
 }

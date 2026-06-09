@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul 2>&1
 echo ================================================
-echo  AI Story Video Generator - NVIDIA NIM (uv)
+echo  AI Story Video Generator - NVIDIA NIM
 echo ================================================
 echo.
 
@@ -28,6 +28,7 @@ echo.
 echo  Open browser: http://localhost:5000
 echo  Press Ctrl+C to stop
 echo.
-uv run video_server.py
+set PYTHONUTF8=1
+.venv\Scripts\python.exe video_server.py
 
 pause
