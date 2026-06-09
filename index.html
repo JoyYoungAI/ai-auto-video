@@ -523,7 +523,7 @@ input:disabled, select:disabled, textarea:disabled { opacity: .45; cursor: not-a
   border-top: 3px solid var(--green);
   border-radius: 14px;
   padding: 40px 44px 36px;
-  max-width: 420px;
+  max-width: 540px;
   width: 90%;
   text-align: center;
   box-shadow: 0 24px 64px rgba(0,0,0,.6);
@@ -562,6 +562,15 @@ input:disabled, select:disabled, textarea:disabled { opacity: .45; cursor: not-a
   color: var(--muted);
   margin-bottom: 24px;
   word-break: break-all;
+}
+.modal-video {
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  background: #000;
+  outline: none;
+  display: block;
 }
 .modal-btns {
   display: flex;
@@ -761,6 +770,7 @@ input:disabled, select:disabled, textarea:disabled { opacity: .45; cursor: not-a
     <div class="modal-icon">🎬</div>
     <h2 class="modal-title" data-i18n="result.heading">影片生成完成！</h2>
     <p class="modal-filename" id="modal-filename"></p>
+    <video id="result-video" class="modal-video" controls playsinline></video>
     <div class="modal-btns">
       <button class="btn btn-success btn-ico ico-download" onclick="downloadVideo()" data-i18n="btn.download">下載影片 (.mp4)</button>
       <button class="btn btn-outline btn-ico ico-again" onclick="closeModalAndReset()" data-i18n="btn.generateAgain">再次生成</button>
@@ -993,14 +1003,19 @@ function renderLog(lines) {
 /* ── Show result modal ──────────────────────────────────────────── */
 function showResult() {
   document.getElementById("modal-filename").textContent = lastFilename || "";
+  const video = document.getElementById("result-video");
+  video.src = `${API_BASE}/api/stream/${currentJobId}`;
+  video.load();
   const modal = document.getElementById("result-modal");
   modal.style.display = "flex";
   document.body.style.overflow = "hidden";
-  // Apply i18n to modal elements
   applyTranslations();
 }
 
 function closeModal() {
+  const video = document.getElementById("result-video");
+  video.pause();
+  video.src = "";
   document.getElementById("result-modal").style.display = "none";
   document.body.style.overflow = "";
 }

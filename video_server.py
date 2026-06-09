@@ -213,10 +213,15 @@ def find_chinese_font(size: int):
 
 # ── Image generation ───────────────────────────────────────────────────────────
 def generate_image(prompt: str, api_key: str, scene_idx: int,
-                   img_dir: Path, fast_mode: bool = False) -> Path:
+                   img_dir: Path, fast_mode: bool = False,
+                   log_cb=None) -> Path:
     """Generate one scene image via NVIDIA NIM FLUX API."""
-    out_path = img_dir / f"scene_{scene_idx:02d}.png"
+    def _log(m: str):
+        logging.info(m)
+        if log_cb:
+            log_cb(m)
 
+    out_path = img_dir / f"scene_{scene_idx:02d}.png"
     url = NIM_IMAGE_FAST if fast_mode else NIM_IMAGE_URL
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -225,7 +230,6 @@ def generate_image(prompt: str, api_key: str, scene_idx: int,
     }
     # Both dev and schnell endpoints only accept prompt/width/height/seed.
     # num_inference_steps and guidance are forbidden by the NIM API.
-    # allowed height/width values: 768, 832, 896, 960, 1024, 1088, 1152, 1216, 1280, 1344
     payload: dict = {
         "prompt": prompt,
         "width": 1344,
@@ -235,12 +239,17 @@ def generate_image(prompt: str, api_key: str, scene_idx: int,
 
     last_exc: Exception = RuntimeError("unreachable")
     for attempt in range(3):
+        _log(f"  🔌 場景 {scene_idx+1} 連線 NVIDIA NIM (嘗試 {attempt+1}/3)...")
+        t0 = time.time()
         try:
             resp = requests.post(url, headers=headers, json=payload, timeout=120)  # type: ignore[arg-type]
+            elapsed = time.time() - t0
             if not resp.ok:
+                _log(f"  ❌ HTTP {resp.status_code} {resp.reason} ({elapsed:.1f}s)")
                 raise requests.HTTPError(
                     f"{resp.status_code} {resp.reason} — {resp.text[:600]}", response=resp
                 )
+            _log(f"  ✅ HTTP {resp.status_code} OK ({elapsed:.1f}s)")
             data = resp.json()
             if "artifacts" in data and data["artifacts"]:
                 img_bytes = base64.b64decode(data["artifacts"][0]["base64"])
@@ -249,11 +258,19 @@ def generate_image(prompt: str, api_key: str, scene_idx: int,
                 img.save(out_path, "PNG")
                 return out_path
             raise ValueError(f"Unexpected response: {json.dumps(data)[:200]}")
-        except requests.Timeout as exc:
-            last_exc = exc
+        except requests.Timeout:
+            elapsed = time.time() - t0
+            last_exc = RuntimeError(f"連線逾時 {elapsed:.0f}s")
             if attempt < 2:
-                time.sleep(5)  # brief pause before retry
-        except requests.HTTPError as exc:
+                _log(f"  ⏱ 逾時 {elapsed:.0f}s — 5s 後進行第 {attempt+2}/3 次重試...")
+                time.sleep(5)
+            else:
+                _log(f"  ⏱ 逾時 {elapsed:.0f}s — 已達重試上限，放棄")
+        except requests.ConnectionError as exc:
+            elapsed = time.time() - t0
+            _log(f"  ❌ 連線失敗 ({elapsed:.1f}s): {exc}")
+            raise
+        except requests.HTTPError:
             raise  # non-timeout HTTP errors are not retryable
     raise last_exc
 
@@ -523,7 +540,8 @@ def run_job(job_id: str, api_key: str, story_text: str,
                 if api_key and REQUESTS_OK and PIL_OK:
                     raw_path = generate_image(
                         scene.get("image_prompt", "Chinese ink painting scene"),
-                        api_key, i, img_dir, fast_mode
+                        api_key, i, img_dir, fast_mode,
+                        log_cb=lambda m: jobs[job_id]["log"].append(m)
                     )
                 else:
                     raw_path = make_placeholder(i, scene.get("title", f"Scene {i+1}"), img_dir)
@@ -702,6 +720,17 @@ def api_download(job_id):
         as_attachment=True,
         download_name=download_name
     )
+
+
+@app.route("/api/stream/<job_id>")
+def api_stream(job_id):
+    """Serve MP4 inline for browser <video> preview (supports Range requests)."""
+    if job_id not in jobs:
+        return jsonify({"error": msg("api.job_not_found")}), 404
+    video_path = jobs[job_id].get("video_path")
+    if not video_path or not Path(video_path).exists():
+        return jsonify({"error": msg("api.video_not_ready")}), 404
+    return send_file(video_path, mimetype="video/mp4")
 
 
 @app.route("/api/check")
