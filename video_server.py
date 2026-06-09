@@ -18,6 +18,7 @@ import os
 import random
 import re
 import threading
+import time
 import traceback
 import uuid
 from datetime import datetime
@@ -232,21 +233,29 @@ def generate_image(prompt: str, api_key: str, scene_idx: int,
         "seed": 100 + scene_idx,
     }
 
-    resp = requests.post(url, headers=headers, json=payload, timeout=120)  # type: ignore[arg-type]
-    if not resp.ok:
-        raise requests.HTTPError(
-            f"{resp.status_code} {resp.reason} — {resp.text[:600]}", response=resp
-        )
-    data = resp.json()
-
-    if "artifacts" in data and data["artifacts"]:
-        img_bytes = base64.b64decode(data["artifacts"][0]["base64"])
-        img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-        img = img.resize((1280, 720), Image.Resampling.LANCZOS)
-        img.save(out_path, "PNG")
-        return out_path
-
-    raise ValueError(f"Unexpected response: {json.dumps(data)[:200]}")
+    last_exc: Exception = RuntimeError("unreachable")
+    for attempt in range(3):
+        try:
+            resp = requests.post(url, headers=headers, json=payload, timeout=120)  # type: ignore[arg-type]
+            if not resp.ok:
+                raise requests.HTTPError(
+                    f"{resp.status_code} {resp.reason} — {resp.text[:600]}", response=resp
+                )
+            data = resp.json()
+            if "artifacts" in data and data["artifacts"]:
+                img_bytes = base64.b64decode(data["artifacts"][0]["base64"])
+                img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+                img = img.resize((1280, 720), Image.Resampling.LANCZOS)
+                img.save(out_path, "PNG")
+                return out_path
+            raise ValueError(f"Unexpected response: {json.dumps(data)[:200]}")
+        except requests.Timeout as exc:
+            last_exc = exc
+            if attempt < 2:
+                time.sleep(5)  # brief pause before retry
+        except requests.HTTPError as exc:
+            raise  # non-timeout HTTP errors are not retryable
+    raise last_exc
 
 
 def make_placeholder(scene_idx: int, title: str, img_dir: Path) -> Path:
